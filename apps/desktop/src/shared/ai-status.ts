@@ -13,6 +13,8 @@ const TOOL_OF_METHOD: Readonly<Record<string, string>> = {
   render: 'render_region',
   set_comment_status: 'set_comment_status',
   reply_comment: 'reply_to_comment',
+  open_model: 'get_open_model',
+  search_parts: 'search_parts',
 };
 
 /** The MCP tool behind a bridge method; undefined for methods no tool calls (ping, status). */

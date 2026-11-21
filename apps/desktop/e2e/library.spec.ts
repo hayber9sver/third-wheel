@@ -324,3 +324,56 @@ test('AI side: the MCP tools read the request and write the result of each part 
     await client.close();
   }
 });
+
+test('search_parts: the AI searches the shipped catalogue (English, Chinese, one class in full)', async () => {
+  const client = new Client({ name: 'e2e-search', version: '1' });
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+  await client.connect(
+    new StdioClientTransport({
+      command: process.execPath,
+      args: [resolve(appDir, '../../packages/mcp-server/build/third-wheel-mcp.js')],
+      cwd: dir,
+      env: { ...env, THIRD_WHEEL_BRIDGE_FILE: bridgeFile },
+      stderr: 'ignore',
+    }),
+  );
+  const ask = async (args: Record<string, unknown>) => {
+    const r = (await client.callTool({ name: 'search_parts', arguments: args })) as {
+      content: { text?: string }[];
+      isError?: boolean;
+    };
+    const text = r.content.map((c) => c.text ?? '').join(' ');
+    return { isError: r.isError === true, text, json: () => JSON.parse(text) as unknown };
+  };
+  type Hit = {
+    cls: string;
+    options: { name: string; kind: string; count?: number; sizes?: unknown }[];
+  };
+  type Result = { library: string; version: string; total: number; hits: Hit[]; note?: string };
+  try {
+    const seal = (await ask({ query: 'seal' })).json() as Result;
+    expect(seal.library).toBe('bd_warehouse');
+    expect(seal.hits.map((h) => h.cls)).toContain('ORing');
+
+    const screws = (await ask({ query: '螺絲', limit: 3 })).json() as Result;
+    expect(screws.hits).toHaveLength(3);
+    expect(screws.total).toBeGreaterThan(3);
+
+    // A class in full: every buildable size by standard, none the library cannot build.
+    const full = (await ask({ cls: 'SocketHeadCapScrew' })).json() as Result;
+    const size = full.hits[0]?.options.find((o) => o.kind === 'size');
+    const bySize = size?.sizes as Record<string, string[]>;
+    expect(bySize['asme_b18.3']).toContain('#3-48');
+    expect(bySize['asme_b18.3']).not.toContain('#1-64');
+
+    // Mistakes come back readable.
+    const unknown = await ask({ cls: 'NoSuchThing' });
+    expect(unknown.isError).toBe(true);
+    expect(unknown.text).toContain('No class "NoSuchThing"');
+    const both = await ask({ query: 'x', cls: 'HexNut' });
+    expect(both.isError).toBe(true);
+  } finally {
+    await client.close();
+  }
+});

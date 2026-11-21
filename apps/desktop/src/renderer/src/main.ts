@@ -3,7 +3,9 @@ import './styles.css';
 import { isThemeMode, resolveTheme, THEME_MODES, type ThemeMode } from '../../shared/theme.js';
 import { BODY, BRUSH, BUCKET, EDGE, FACE, icon, POINTER, VERTEX } from './icons.js';
 import { fitToolbar } from './toolbar-fit.js';
+import { getCatalogue } from './library/catalogue-load.js';
 import { initLibraryPanel } from './library/library-panel.js';
+import { searchParts } from './library/search.js';
 import {
   DEFAULT_NAVIGATION_STYLE,
   DEFAULT_ORBIT_STYLE,
@@ -38,6 +40,7 @@ import {
   requestReviewParamsSchema,
   setCommentStatusParamsSchema,
   replyCommentParamsSchema,
+  searchPartsParamsSchema,
   customBodyNames,
   lostBodyNames,
   lostBodyNamesWarning,
@@ -3185,6 +3188,10 @@ window.thirdWheel?.onBridgeRequest((method, params) => {
         },
       } satisfies StatusResult;
     }
+    case 'search_parts':
+      return getCatalogue().then((catalogue) =>
+        searchParts(catalogue, parseParams(searchPartsParamsSchema, params, method)),
+      );
     case 'load':
       return bridgeLoad(params as LoadRequest);
     case 'annotations': {

@@ -50,7 +50,7 @@ export function createToolServer(options: ToolServerOptions): McpServer {
     { name: SERVER_NAME, version: options.version ?? '0.0.0' },
     {
       instructions:
-        'Third Wheel shows a STEP model to the user, who marks spots (markers) and writes comments. In a new session call get_open_model first: it tells you which model the user has open (modelId, path) and how many comments wait. Loop: export STEP → load_model → request_review → wait_for_review (repeat while "waiting") → get_annotations → render_region only where text is not enough → edit the CAD → set_comment_status with a short note (it shows as your reply under the comment) → export a new STEP → load_model again. Units mm. ' +
+        'Third Wheel shows a STEP model to the user, who marks spots (markers) and writes comments. To suggest or choose library parts use search_parts (the real catalogue). In a new session call get_open_model first: it tells you which model the user has open (modelId, path) and how many comments wait. Loop: export STEP → load_model → request_review → wait_for_review (repeat while "waiting") → get_annotations → render_region only where text is not enough → edit the CAD → set_comment_status with a short note (it shows as your reply under the comment) → export a new STEP → load_model again. Units mm. ' +
         "Versions: export each iteration under a new file name (part.step → part_v2.step → part_v3.step), never over the previous file — the app keeps no copies, so an overwritten version can't be compared. Then load_model the new file with revisionOf = the previous version's modelId: the app moves the markers and comments over. " +
         'The app shows one model at a time; loading a model outside an open review request cancels it. get_annotations also reads a model loaded earlier in this app session without loading it again (render_region, set_comment_status and reply_to_comment need it shown). ' +
         'Each comment has a thread (replies[]); the user reviews in the app, not in this chat. When a comment is unclear (what is meant, which direction, which option, where to make the edit), ask in its thread with reply_to_comment — not in the chat — then call request_review (message e.g. "2 questions in the comments") and wait_for_review; the user answers in the thread and clicks Send to AI; read the latest replies with get_annotations. In the chat, at most a one-line summary. ' +
@@ -122,7 +122,43 @@ export function createToolServer(options: ToolServerOptions): McpServer {
       inputSchema: {},
     },
     async () => {
-      const r = await call('status', {});
+      const r = await call('open_model', {});
+      return r.ok ? json(r.result) : r.error;
+    },
+  );
+
+  server.registerTool(
+    'search_parts',
+    {
+      title: 'Find a library part',
+      description:
+        'Search the parts library the app ships (bd_warehouse: screws, nuts, washers, bearings, gears, sprockets, O-rings, keys, snap rings, flanges, pipes, bushings, threads, OpenBuilds). It is the same catalogue and search as the Library panel, so classes and sizes are ones the library can build. Give query (English or Chinese words, e.g. "螺絲", "seal", "bearing 8 mm shaft") to find parts: returns { library, version, total, hits[], note? }; each hit has cls (the class name for a request), label, module, group, operation (cuts a hole or slot instead of adding a part), exampleSize (mm), solids, subparts (named parts and counts), builtWith, and options (what can be chosen: standard types, sizes, fixed choices, numbers with a default, flags such as thread yes/no); long lists come as count + examples. Give cls (a class name from a hit) to get that class’s full lists, e.g. every buildable standard size. Use it to recommend parts to the user from real data instead of memory, then tell them which to add in the Library panel (Add to request) or build it yourself. Only sizes in the catalogue are offered: bd_warehouse lists some it cannot build and those are left out.',
+      inputSchema: {
+        query: z
+          .string()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe('Words describing the part, English or Chinese'),
+        cls: z
+          .string()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe('A class name from an earlier result, for its full lists'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(30)
+          .optional()
+          .describe('Most hits to return (default 10)'),
+      },
+    },
+    async (args) => {
+      if ((args.query === undefined) === (args.cls === undefined))
+        return errorResult('Give either query or cls');
+      const r = await call('search_parts', args);
       return r.ok ? json(r.result) : r.error;
     },
   );

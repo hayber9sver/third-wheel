@@ -828,6 +828,8 @@ async function startAppBridge(): Promise<void> {
       handlers: recordingCalls({
         ping: (): PingResult => ({ app: 'third-wheel', version, protocol: BRIDGE_PROTOCOL }),
         status: (params) => askWindow('status', params),
+        open_model: (params) => askWindow('status', params),
+        search_parts: (params) => askWindow('search_parts', params),
         load: bridgeLoad,
         annotations: (params) => askWindow('annotations', params),
         request_review: (params) => askWindow('request_review', params, WINDOW_ANSWER_MS, true),

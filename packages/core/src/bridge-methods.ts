@@ -284,6 +284,71 @@ export interface ReplyCommentResult {
   readonly partsUpdated?: number;
 }
 
+/**
+ * `search_parts`: look up the parts library the app ships (the catalogue behind the Library panel).
+ * Give `query` (English or Chinese words, as in the panel's search box) to find parts, or `cls` (a class
+ * name from an earlier result) to get everything chosen for one class: all standard sizes, types, numbers.
+ */
+export const searchPartsParamsSchema = z
+  .object({
+    query: z.string().trim().min(1).max(200).optional(),
+    cls: z.string().trim().min(1).max(80).optional(),
+    limit: z.number().int().min(1).max(30).optional(),
+  })
+  .refine((p) => (p.query === undefined) !== (p.cls === undefined), {
+    message: 'Give either query or cls',
+  });
+
+export type SearchPartsParams = z.infer<typeof searchPartsParamsSchema>;
+
+/** One thing that can be chosen for a part. A long list is summarised (`count`, `examples`) unless `cls` was asked for. */
+export interface PartOptionInfo {
+  readonly name: string;
+  readonly kind: 'choice' | 'size' | 'flag' | 'number';
+  /** `choice`: the values (or `count` + `examples` when long). */
+  readonly choices?: readonly (string | number)[];
+  /** `size`: standard sizes, or by standard when they depend on it (`typeParam` names that choice). */
+  readonly sizes?: readonly string[] | Readonly<Record<string, readonly string[]>>;
+  readonly typeParam?: string;
+  readonly count?: number;
+  readonly examples?: readonly (string | number)[];
+  /** `number`: what the preview used, and the unit. */
+  readonly default?: number;
+  readonly unit?: string;
+  /** `flag`: what `true` and `false` mean. */
+  readonly on?: string;
+  readonly off?: string;
+}
+
+export interface SearchPartHit {
+  /** The class name: goes into a request's `source.cls`. */
+  readonly cls: string;
+  readonly label: string;
+  readonly module: string;
+  readonly group: string;
+  /** Cuts a hole or slot into a model instead of adding a part. */
+  readonly operation: boolean;
+  /** How many of the query's words matched (more = better). */
+  readonly matched?: number;
+  /** Size of the example the catalogue shows, mm; its solids; named sub-parts and counts. */
+  readonly exampleSize?: readonly [number, number, number];
+  readonly solids?: number;
+  readonly subparts?: Readonly<Record<string, number>>;
+  /** What the example was built with. */
+  readonly builtWith?: Readonly<Record<string, string | number | boolean>>;
+  readonly options: readonly PartOptionInfo[];
+}
+
+export interface SearchPartsResult {
+  readonly library: string;
+  readonly version: string;
+  /** Parts that matched; `hits` is the best `limit` of them (default 10). */
+  readonly total: number;
+  readonly hits: readonly SearchPartHit[];
+  /** Missing or odd results: what to try. */
+  readonly note?: string;
+}
+
 /** Checks bridge params; a readable error names what is wrong. */
 export function parseParams<T>(schema: z.ZodType<T>, params: unknown, method: string): T {
   const r = schema.safeParse(params ?? {});

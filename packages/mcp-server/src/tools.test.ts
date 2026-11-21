@@ -41,7 +41,7 @@ type Content = { type: string; text?: string; data?: string; mimeType?: string }
 const text = (r: unknown): string => (r as { content: Content }).content[0]?.text ?? '';
 
 describe('MCP tools', () => {
-  it('lists the eight tools', async () => {
+  it('lists the nine tools', async () => {
     const { client } = await setup(() => null);
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -51,6 +51,7 @@ describe('MCP tools', () => {
       'render_region',
       'reply_to_comment',
       'request_review',
+      'search_parts',
       'set_comment_status',
       'wait_for_review',
     ]);
@@ -65,7 +66,7 @@ describe('MCP tools', () => {
     const r = await client.callTool({ name: 'get_open_model', arguments: {} });
     expect(JSON.parse(text(r))).toEqual(answer);
     expect(sent).toHaveLength(1);
-    expect(sent[0]?.method).toBe('status');
+    expect(sent[0]?.method).toBe('open_model');
   });
 
   it('load_model resolves relative paths from the server folder', async () => {

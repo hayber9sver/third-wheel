@@ -147,6 +147,15 @@ export function moduleLabel(catalogue: Catalogue, id: string): string {
   return catalogue.modules.find((m) => m.id === id)?.label ?? id;
 }
 
+/** Lower-case text a search looks in: class name (also split into words), group, module and keywords. */
+export function searchText(catalogue: Catalogue, name: string): string {
+  const c = catalogue.classes[name];
+  if (!c) return '';
+  return [name, humanizeClassName(name), c.group, moduleLabel(catalogue, c.module), c.keywords]
+    .join(' ')
+    .toLowerCase();
+}
+
 /**
  * Classes matching a search, in list order. Every word must be found in the class name (also split into
  * words), its group, its module or its keywords, ignoring case: "seal" finds O-rings and capped bearings,
@@ -157,17 +166,7 @@ export function searchClasses(catalogue: Catalogue, query: string): string[] {
   const all = allClassNames(catalogue);
   if (words.length === 0) return all;
   return all.filter((name) => {
-    const c = catalogue.classes[name];
-    if (!c) return false;
-    const text = [
-      name,
-      humanizeClassName(name),
-      c.group,
-      moduleLabel(catalogue, c.module),
-      c.keywords,
-    ]
-      .join(' ')
-      .toLowerCase();
+    const text = searchText(catalogue, name);
     return words.every((w) => text.includes(w));
   });
 }

@@ -9,6 +9,14 @@ Call `get_open_model`: it gives the `modelId` and the file `path` of what the us
 wait. Then `get_annotations` with that `modelId`. Write the next version **beside** the file under a new name
 (`part.step` → `part_v2.step`), never over it.
 
+## 0b. Recommend a library part
+
+When the user asks what to use ("how do I fasten these", "a seal for this", "找一個軸承"), call `search_parts` with
+their words instead of answering from memory: it searches the catalogue the app ships (the same one as the Library
+panel), so the classes exist and every size listed can be built. Then `search_parts` with `cls` for the full
+standards and sizes of the one you suggest. Tell the user which to add in the Library panel (Add to request), or
+build it yourself, and respect what they fixed in `params`.
+
 ## 1. Keep the user's names (do this every time)
 
 The Bodies list shows the names inside the STEP file. build123d's `import_step`, boolean results and

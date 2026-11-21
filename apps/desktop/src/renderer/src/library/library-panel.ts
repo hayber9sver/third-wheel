@@ -5,7 +5,6 @@
  * see the panel). Parts are put into a request (Request tab): copies, whole or sub-parts, target markers, a
  * note and an instruction; "Create request" saves it as a comment with `parts` (see `request.ts`).
  */
-import catalogueUrl from './data/catalogue.json?url';
 import meshesUrl from './data/meshes.bin?url';
 import { BODY, CHEVRON, CROSS, icon } from '../icons.js';
 import {
@@ -14,10 +13,10 @@ import {
   formatSize,
   humanizeClassName,
   moduleLabel,
-  parseCatalogue,
   searchClasses,
   type Catalogue,
 } from './catalogue.js';
+import { getCatalogue } from './catalogue-load.js';
 import { PartPreviews } from './previews.js';
 import { optionLabel, sizesFor } from './catalogue.js';
 import { buildRequest, clampCopies, needsMode, newDraftItem, type DraftItem } from './request.js';
@@ -576,7 +575,7 @@ export function initLibraryPanel({
     renderList();
     void (async () => {
       try {
-        const catalogue = parseCatalogue(await (await fetchOk(catalogueUrl)).json());
+        const catalogue = await getCatalogue();
         const previews = new PartPreviews(await (await fetchOk(meshesUrl)).arrayBuffer());
         const first = catalogue.modules[0];
         if (first) expanded.add(first.id);

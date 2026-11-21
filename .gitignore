@@ -26,6 +26,10 @@ playwright/.cache/
 npm-debug.log*
 pnpm-debug.log*
 
+# Python environments for the library scripts (docs/development.md)
+.venv*/
+__pycache__/
+
 # Env
 .env
 .env.*

@@ -22,6 +22,8 @@ describe('toolOfMethod', () => {
     expect(toolOfMethod('annotations')).toBe('get_annotations');
     expect(toolOfMethod('render')).toBe('render_region');
     expect(toolOfMethod('reply_comment')).toBe('reply_to_comment');
+    expect(toolOfMethod('open_model')).toBe('get_open_model');
+    expect(toolOfMethod('search_parts')).toBe('search_parts');
     expect(toolOfMethod('ping')).toBeUndefined();
     expect(toolOfMethod('status')).toBeUndefined();
     expect(toolOfMethod('toString')).toBeUndefined();
