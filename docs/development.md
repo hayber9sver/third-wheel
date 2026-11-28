@@ -143,8 +143,9 @@ either version changes, in one pull request:
    how STEP export writes body names and nesting (see "Keeping the user's body names" in `docs/mcp-tools.md`),
    `import_step` behaviour, the `simple` flag and thread solids.
 6. `pnpm test` (`library/data.test.ts` fails while the catalogue and the pins disagree), `pnpm test:e2e`.
-7. Update the licence and version note in `library/data/README.md` and the About / third-party licences list if a
-   dependency changed.
+7. Run `pnpm notices`: the third-party licence list (`THIRD_PARTY_NOTICES.txt`) credits bd_warehouse and build123d at the
+   pinned versions (their licence files are copied into `scripts/licences/`; copy the new ones if the licence or the
+   NOTICE changed), and update the note in `library/data/README.md`. `pnpm test` fails while the list is out of date.
 
 `pnpm test` has a unit test over the shipped data (`library/data.test.ts`) that fails if a known unbuildable size
 is offered again. Read the diff of `catalogue.json` and `report.json` (a class that stopped building shows up there). The defaults a
