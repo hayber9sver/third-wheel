@@ -58,6 +58,35 @@ const SPECIAL = {
     ].join('\n'),
 };
 
+/**
+ * Python libraries the parts catalogue was generated with (scripts/library/generate_catalogue.py). Only the
+ * generated data ships (the part list, standard sizes and low-polygon preview meshes of
+ * apps/desktop/src/renderer/src/library/data), not their code. Versions are the pins in
+ * scripts/library/requirements.txt; licence files are copied verbatim from the packages.
+ */
+const CATALOGUE_SOURCES = [
+  {
+    name: 'bd_warehouse',
+    licence: 'Apache-2.0',
+    url: 'https://github.com/gumyr/bd_warehouse',
+    files: ['bd_warehouse-LICENSE.txt'],
+  },
+  {
+    name: 'build123d',
+    licence: 'Apache-2.0',
+    url: 'https://github.com/gumyr/build123d',
+    files: ['build123d-LICENSE.txt', 'build123d-NOTICE.txt'],
+  },
+];
+
+/** Version of a Python package as pinned in scripts/library/requirements.txt. */
+function pinnedVersion(name, root) {
+  const text = readText(join(root, 'scripts', 'library', 'requirements.txt'));
+  const match = new RegExp('^' + name + '==(\\S+)$', 'm').exec(text);
+  if (!match) throw new Error(name + ' is not pinned in scripts/library/requirements.txt');
+  return match[1];
+}
+
 const LICENCE_FILE = /^(licen[cs]e|copying|notice)([.-].*)?$/i;
 
 function readText(path) {
@@ -170,6 +199,7 @@ export function buildNotices(root = REPO_ROOT) {
     '',
     'Third Wheel (© 2026 XiLaoTr, Apache License 2.0) includes the open-source packages below.',
     'Each is listed with its version, its licence and the licence text it ships with.',
+    'The parts library data (see the end) was generated with bd_warehouse and build123d.',
     'Electron also includes Chromium and its components; their licences are in',
     'LICENSES.chromium.html next to the app.',
     '',
@@ -183,6 +213,30 @@ export function buildNotices(root = REPO_ROOT) {
     const url = repoUrl(p.pkg);
     if (url) out.push(url);
     out.push(rule, '', licenceText(p));
+  }
+  // The parts library: data generated with these Python libraries (not their code).
+  out.push(
+    '',
+    rule,
+    'Parts library data: generated with bd_warehouse and build123d',
+    rule,
+    '',
+    'The Library panel lists parts of bd_warehouse (standard fasteners, bearings, gears, ...) with',
+    'low-polygon preview pictures. That list, the standard sizes and the preview meshes were generated',
+    'with the libraries below and ship as data files (library/data in the source repository); the',
+    'libraries themselves are not part of the app. Both are licensed under the Apache License,',
+    'Version 2.0.',
+  );
+  for (const src of CATALOGUE_SOURCES) {
+    out.push(
+      '',
+      rule,
+      src.name + ' ' + pinnedVersion(src.name, root) + ' — ' + src.licence,
+      src.url,
+      rule,
+      '',
+    );
+    out.push(src.files.map((f) => readText(join(root, 'scripts', 'licences', f))).join('\n\n'));
   }
   return out.join('\n') + '\n';
 }

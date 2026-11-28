@@ -61,4 +61,19 @@ describe('third-party notices', () => {
     expect(text).toContain('END OF TERMS AND CONDITIONS');
     expect(text).not.toContain('No licence file in the package');
   });
+
+  it('credits the libraries the parts catalogue was generated with, at the pinned versions', async () => {
+    const { NOTICES_FILE } = await loadScript();
+    const text = readFileSync(join(repoRoot, NOTICES_FILE), 'utf8');
+    const pins = readFileSync(join(repoRoot, 'scripts', 'library', 'requirements.txt'), 'utf8');
+    for (const name of ['bd_warehouse', 'build123d']) {
+      const version = new RegExp(`^${name}==([^\\s]+)$`, 'm').exec(pins)?.[1];
+      expect(version, `${name} is pinned`).toBeDefined();
+      expect(text).toContain(`${name} ${version ?? ''} — Apache-2.0`);
+    }
+    expect(text).toContain('Parts library data: generated with bd_warehouse and build123d');
+    // build123d ships a NOTICE file that must be kept with the licence.
+    expect(text).toContain('Copyright (c) 2022–2025 The build123d Contributors');
+    expect(text).toContain('CadQuery');
+  });
 });
