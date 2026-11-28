@@ -1,10 +1,10 @@
 /**
  * Electron test of the Parts library: the toolbar button and panel, browsing and search, the 3D
  * preview, putting parts into a request (standard size, copies, markers, note), saving it as a comment
- * with `parts` in the sidecar, and getting it back after reopening the model.
+ * with `parts` in the project notes, and getting it back after reopening the model.
  * Run with `pnpm test:e2e` (builds first).
  */
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -17,6 +17,7 @@ import {
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { OcctKernel } from 'occt-wasm';
+import { mustReadNotes } from './notes.js';
 
 interface TestHook {
   loaded(): boolean;
@@ -173,9 +174,9 @@ test('Request: standard size and length, copies, marker, note → a comment with
   // The comment card lists the part.
   await expect(page.locator('.comment-parts li')).toHaveText('Socket Head Cap Screw ×2 → Marker 1');
 
-  // The sidecar holds it, with the choices and the note kept apart.
+  // The project holds it, with the choices and the note kept apart.
   await page.evaluate(() => (window as HookWindow).__thirdWheelTest?.flush());
-  const sidecar = JSON.parse(readFileSync(`${boxPath}.thirdwheel.json`, 'utf8')) as {
+  const sidecar = mustReadNotes(boxPath) as {
     comments: { text: string; markerIds: string[]; parts: unknown[] }[];
   };
   const comment = sidecar.comments.at(-1);
@@ -197,7 +198,7 @@ test('Request: standard size and length, copies, marker, note → a comment with
     },
   ]);
 
-  // Reopening the model reads it back from the sidecar.
+  // Reopening the model reads it back from the project.
   await page.evaluate(() => (window as HookWindow).__thirdWheelTest?.reopen(true));
   await page.waitForFunction(() => (window as HookWindow).__thirdWheelTest?.loaded() === true, {
     timeout: 60_000,
@@ -231,8 +232,8 @@ test('AI side: the MCP tools read the request and write the result of each part 
       text,
     };
   };
-  const readSidecar = () =>
-    JSON.parse(readFileSync(`${boxPath}.thirdwheel.json`, 'utf8')) as {
+  const readNotes = () =>
+    mustReadNotes(boxPath) as {
       comments: { id: string; parts: { id: string; result?: Record<string, unknown> }[] }[];
     };
   try {
@@ -266,6 +267,7 @@ test('AI side: the MCP tools read the request and write the result of each part 
     // The AI is told where the file is, to edit it or write the next version beside it.
     expect(review.path).toBe(boxPath);
     const comment = review.comments.find((c) => c.parts.length > 0);
+    const commentId = comment?.id ?? '';
     expect(comment?.text).toBe('Fasten the plate here');
     expect(comment?.parts[0]).toMatchObject({
       id: 'p1',
@@ -280,32 +282,34 @@ test('AI side: the MCP tools read the request and write the result of each part 
     // An unknown part id is refused and nothing changes.
     const bad = await tool('set_comment_status', {
       modelId,
-      commentId: 'c1',
+      commentId,
       status: 'resolved',
       partResults: [{ partId: 'p9', status: 'placed' }],
     });
     expect(bad.isError).toBe(true);
     expect(bad.text).toContain('no part "p9"');
-    expect(readSidecar().comments[0]?.parts[0]).not.toHaveProperty('result');
+    expect(readNotes().comments.find((c) => c.id === commentId)?.parts[0]).not.toHaveProperty(
+      'result',
+    );
 
     // A question about the part: the status stays open, the part shows it needs info.
     const asked = (
       await tool('reply_to_comment', {
         modelId,
-        commentId: 'c1',
+        commentId,
         text: 'Which thread length?',
         partResults: [{ partId: 'p1', status: 'needs-info', note: 'Length unclear' }],
       })
     ).json();
-    expect(asked).toMatchObject({ commentId: 'c1', status: 'open', partsUpdated: 1 });
+    expect(asked).toMatchObject({ commentId, status: 'open', partsUpdated: 1 });
     await expect(page.locator('.comment-parts li')).toContainText('needs-info');
     await expect(page.locator('.comment-part-note')).toHaveText('Length unclear');
 
-    // Done: the result names the bodies; the card and the sidecar show it.
+    // Done: the result names the bodies; the card and the project show it.
     const done = (
       await tool('set_comment_status', {
         modelId,
-        commentId: 'c1',
+        commentId,
         status: 'resolved',
         note: 'two screws placed',
         partResults: [
@@ -313,10 +317,10 @@ test('AI side: the MCP tools read the request and write the result of each part 
         ],
       })
     ).json();
-    expect(done).toMatchObject({ commentId: 'c1', status: 'resolved', partsUpdated: 1 });
+    expect(done).toMatchObject({ commentId, status: 'resolved', partsUpdated: 1 });
     await expect(page.locator('.comment-parts li')).toContainText('placed (Screw M5-0.8x16');
     await page.evaluate(() => (window as HookWindow).__thirdWheelTest?.flush());
-    expect(readSidecar().comments[0]?.parts[0]?.result).toMatchObject({
+    expect(readNotes().comments.find((c) => c.id === commentId)?.parts[0]?.result).toMatchObject({
       status: 'placed',
       bodies: ['Screw M5-0.8x16 (Marker 1) [1]'],
     });

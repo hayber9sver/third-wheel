@@ -1,5 +1,5 @@
 /**
- * Comments section in the right panel (T4.2), Onshape-style review list. A comment points at
+ * Comments section in the right panel, Onshape-style review list. A comment points at
  * markers (chips in their colours); "+ Comment" opens the writing box with the active marker
  * ticked — or, with a selection, a pending new marker "Comment N" holding it (made on Post).
  *
@@ -13,7 +13,7 @@
  * The writing box sits above the list for new comments and edits, so redrawing the list (marker
  * or comment changes) never loses what is being typed.
  *
- * Replies (T7.5, Google Docs-style): the thread sits under the card (collapsed to the latest reply
+ * Replies (Google Docs-style): the thread sits under the card (collapsed to the latest reply
  * unless the card is highlighted); the highlighted card has a "Reply…" box at its bottom (one
  * element moved between redraws, unposted text kept per comment). Your own replies have ⋯ Edit /
  * Delete; a reply on a closed comment reopens it.
@@ -48,8 +48,11 @@ export interface CommentsPanelHooks {
     markerIds: readonly string[],
     linkedModels: readonly string[],
   ): void;
-  /** Other model files opened in this window (T7.4), names a comment can link to. */
-  otherModels(): readonly string[];
+  /**
+   * The project's other parts a comment can link to (never the shown model's own part): name and
+   * newest file name (the link is by file name and follows the part to new versions).
+   */
+  linkParts(): Promise<readonly LinkPart[]>;
   /** Opens a linked model if this window opened it before; false = it can't. */
   canOpenModel(name: string): boolean;
   openModel(name: string): void;
@@ -59,6 +62,12 @@ export interface CommentsPanelHooks {
   readonly postKeyLabel: string;
   /** Platform label of the OS dictation key, e.g. "Win+H" (shown in the placeholder). */
   readonly dictationLabel: string;
+}
+
+/** A part a comment can link to. */
+export interface LinkPart {
+  readonly name: string;
+  readonly fileName: string;
 }
 
 type Composer = { markerIds: string[]; linkedModels: string[] } & (
@@ -88,7 +97,7 @@ export function shortTime(iso: string, now = new Date()): string {
 }
 
 /**
- * T8.3: the AI closed the comment; the user checks the model and answers here. Confirm closes it
+ * The AI closed the comment; the user checks the model and answers here. Confirm closes it
  * for good, Reopen sends it back to the AI as open.
  */
 function confirmBar(c: Comment): HTMLDivElement {
@@ -133,6 +142,8 @@ export class CommentsPanel {
   private readonly linkBtn = document.createElement('button');
   private readonly postBtn = document.createElement('button');
   private composer: Composer | undefined;
+  /** The parts the open comment box can link to (read when it opens). */
+  private linkParts: readonly LinkPart[] = [];
   private readonly replyBox = document.createElement('div');
   private readonly replyInput = document.createElement('textarea');
   private readonly replyPostBtn = document.createElement('button');
@@ -141,6 +152,8 @@ export class CommentsPanel {
   /** Unposted reply text per comment (kept across redraws and focus changes). */
   private readonly replyDrafts = new Map<string, string>();
   private focused: string | undefined;
+  /** Comments with an agent reply the user hasn't looked at (blue dot until highlighted). */
+  private readonly unread = new Set<string>();
   private here = new Set<string>();
 
   constructor(
@@ -227,13 +240,13 @@ export class CommentsPanel {
     return this.focused;
   }
 
-  /** "Show resolved" is ticked (pins follow it, T4.3). */
+  /** "Show resolved" is ticked (pins follow it). */
   get showsClosed(): boolean {
     return this.showClosed;
   }
 
   /**
-   * A 3D pin was clicked (T4.3): same as clicking its card — highlight (again = off), the second
+   * A 3D pin was clicked: same as clicking its card — highlight (again = off), the second
    * click of a double click edits and stays highlighted; the card scrolls into view.
    */
   pinClicked(id: string, detail: number): void {
@@ -278,7 +291,7 @@ export class CommentsPanel {
   }
 
   /**
-   * "Send to AI" (T7.3): text typed in the box but not posted goes out too — a new comment is
+   * "Send review": text typed in the box but not posted goes out too — a new comment is
    * posted, an edit saved (like GitHub's "Submit review"). Returns what happened, if anything.
    */
   postDraft(): 'posted' | 'saved' | undefined {
@@ -289,7 +302,7 @@ export class CommentsPanel {
     return c.mode === 'edit' && replied === undefined ? 'saved' : 'posted';
   }
 
-  /** Unposted replies (and a reply being edited) go out with "Send to AI" too. */
+  /** Unposted replies (and a reply being edited) go out with "Send review" too. */
   private postReplyDrafts(): 'posted' | 'saved' | undefined {
     let result: 'posted' | 'saved' | undefined;
     const f = this.replyFor;
@@ -313,7 +326,25 @@ export class CommentsPanel {
     this.replyInput.value = '';
     this.focused = undefined;
     this.here = new Set();
+    this.unread.clear();
     this.render();
+  }
+
+  /** The agent replied under this comment: a blue dot until the card is highlighted. */
+  markUnread(id: string): void {
+    if (id === this.focused || !this.comments.get(id)) return;
+    this.unread.add(id);
+    this.render();
+  }
+
+  /** Highlight a comment (never toggles it off) and scroll its card into view; false = no such comment. */
+  reveal(id: string): boolean {
+    if (!this.comments.get(id)) return false;
+    if (this.focused !== id) this.setFocus(id);
+    this.list
+      .querySelector<HTMLElement>(`li[data-comment="${CSS.escape(id)}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+    return true;
   }
 
   /** Comments on the item clicked in the view (empty set = none / clear). Unfocuses. */
@@ -342,7 +373,7 @@ export class CommentsPanel {
     const keep = new Set(this.here);
     if (this.focused !== undefined) keep.add(this.focused);
     const shown = shownComments(all, this.showClosed, keep);
-    // T10.2: the AI's unconfirmed closes aren't closed yet (they stay listed, "Waiting for you").
+    // The AI's unconfirmed closes aren't closed yet (they stay listed, "Waiting for you").
     const closed = all.filter((c) => !needsAttention(c)).length;
 
     this.empty.hidden = all.length > 0;
@@ -409,9 +440,17 @@ export class CommentsPanel {
     time.className = 'comment-time';
     time.textContent = shortTime(c.createdAt);
     time.title = new Date(c.createdAt).toLocaleString();
-    head.append(num, author, time);
+    head.append(num);
+    if (this.unread.has(c.id)) {
+      const dot = document.createElement('span');
+      dot.className = 'comment-unread';
+      dot.title = 'New reply from the agent';
+      dot.setAttribute('aria-label', 'New reply from the agent');
+      head.append(dot);
+    }
+    head.append(author, time);
     if (c.awaitingConfirm) {
-      // T10.2: not "Resolved" until the user confirms; the amber bar below says what the AI did.
+      // Not "Resolved" until the user confirms; the amber bar below says what the AI did.
       const status = document.createElement('span');
       status.className = 'comment-status awaiting';
       status.textContent = 'Waiting for you';
@@ -659,6 +698,7 @@ export class CommentsPanel {
 
   private setFocus(id: string | undefined): void {
     this.focused = id;
+    if (id !== undefined) this.unread.delete(id);
     this.here = new Set();
     this.hooks.focus(id);
     this.render();
@@ -813,9 +853,9 @@ export class CommentsPanel {
 
     this.linkBtn.type = 'button';
     this.linkBtn.className = 'marker-row-btn comment-link-btn';
-    this.linkBtn.textContent = '↔ Model ▾';
+    this.linkBtn.textContent = '↔ Part ▾';
     this.linkBtn.title =
-      'Link this comment to another model file you opened, e.g. the part it must fit (the AI gets the file name)';
+      'Link this comment to another part of this project, e.g. the part it must fit (the AI gets its newest file name)';
     this.linkBtn.addEventListener('click', () => {
       this.hooks.dropdown(this.linkBtn, this.linkChoices());
     });
@@ -854,7 +894,18 @@ export class CommentsPanel {
           : 'New comment';
     this.postBtn.textContent = composer.mode === 'edit' ? 'Save' : 'Comment';
     this.postBtn.title = `${this.postBtn.textContent} (${this.hooks.postKeyLabel})`;
-    this.linkBtn.hidden = this.linkChoiceNames().length === 0;
+    this.linkParts = [];
+    this.linkBtn.hidden = composer.linkedModels.length === 0;
+    void this.hooks.linkParts().then(
+      (parts) => {
+        if (this.composer !== composer) return; // closed or another box since
+        this.linkParts = parts;
+        this.linkBtn.hidden = this.linkChoices().length === 0;
+      },
+      (err: unknown) => {
+        console.warn('Could not read the parts to link to', err);
+      },
+    );
     this.textarea.value = text;
     this.updatePost();
     this.render();
@@ -905,31 +956,41 @@ export class CommentsPanel {
     }));
   }
 
-  /** Other models opened in this window, then names already linked (so they can be unticked). */
-  private linkChoiceNames(): string[] {
-    return [...new Set([...this.hooks.otherModels(), ...(this.composer?.linkedModels ?? [])])];
-  }
-
+  /**
+   * The project's other parts (by newest file), then names already linked that are none of them
+   * (so they can be unticked).
+   */
   private linkChoices(): MenuEntry[] {
     const c = this.composer;
     if (!c) return [];
     const full = c.linkedModels.length >= MAX_LINKED_MODELS;
-    return this.linkChoiceNames().map((name) => ({
-      label: name,
-      checked: c.linkedModels.includes(name),
-      disabled: full && !c.linkedModels.includes(name),
-      action: `link:${name}`,
+    const linked = (name: string): boolean =>
+      c.linkedModels.some((n) => n.toLowerCase() === name.toLowerCase());
+    const entry = (fileName: string, label: string, detail?: string): MenuEntry => ({
+      label,
+      ...(detail !== undefined ? { detail } : {}),
+      title: `Link to ${fileName}`,
+      checked: linked(fileName),
+      disabled: full && !linked(fileName),
+      action: `link:${fileName}`,
       onSelect: () => {
-        this.toggleLinked(name);
+        this.toggleLinked(fileName);
       },
-    }));
+    });
+    const parts = this.linkParts.map((p) => entry(p.fileName, p.name, p.fileName));
+    const known = new Set(this.linkParts.map((p) => p.fileName.toLowerCase()));
+    const others = c.linkedModels
+      .filter((n) => !known.has(n.toLowerCase()))
+      .map((n) => entry(n, n));
+    return [...parts, ...others];
   }
 
   private toggleLinked(name: string): void {
     const c = this.composer;
     if (!c) return;
-    c.linkedModels = c.linkedModels.includes(name)
-      ? c.linkedModels.filter((n) => n !== name)
+    const lower = name.toLowerCase();
+    c.linkedModels = c.linkedModels.some((n) => n.toLowerCase() === lower)
+      ? c.linkedModels.filter((n) => n.toLowerCase() !== lower)
       : [...c.linkedModels, name];
     this.renderChips();
   }

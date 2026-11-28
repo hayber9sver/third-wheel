@@ -1,10 +1,11 @@
 /**
- * The app menu (T13.2): a small real menu instead of Electron's default one.
+ * The app menu: a small real menu instead of Electron's default one.
  *
  * macOS: Third Wheel (About, Hide, Quit) · File · Edit · Window (Minimize, Zoom) · Help.
  * Windows: File (… Exit) · Edit · Help (… About Third Wheel).
  *
- * File / Undo / Redo / Help items are carried out by the window (`MenuCommand`, the same code
+ * File (project-first: New project folder… · Open folder… · Open Recent · Add file… ·
+ * Reload from disk · Make this folder its own project… · Save project as…) / Undo / Redo / Help items are carried out by the window (`MenuCommand`, the same code
  * as its buttons and keys). Their accelerators are only *shown* on Windows (the page's keydown
  * handles the key there); on macOS the menu takes them and the window drops a second copy of
  * the same press (`ShortcutOnce`). Cut / Copy / Paste / Select All stay Electron roles: they
@@ -22,10 +23,15 @@ export interface AppMenuOptions {
   readonly dev: boolean;
   readonly onAbout: () => void;
   readonly onCommand: (command: MenuCommand) => void;
+  /** File ▸ Open Recent: projects, newest first (label + folder). */
+  readonly recent?: readonly { readonly label: string; readonly folder: string }[];
+  readonly onOpenRecent?: (folder: string) => void;
+  readonly onClearRecent?: () => void;
 }
 
 export function appMenuTemplate(opts: AppMenuOptions): MenuItemConstructorOptions[] {
   const mac = opts.platform === 'darwin';
+  const recent = opts.recent ?? [];
   /** Windows: `&` marks the Alt key letter (Alt+F opens File); macOS would show the `&`. */
   const top = (name: string): string => (mac ? name : `&${name}`);
   const command = (
@@ -49,8 +55,28 @@ export function appMenuTemplate(opts: AppMenuOptions): MenuItemConstructorOption
   const file: MenuItemConstructorOptions = {
     label: top('File'),
     submenu: [
-      command('open', 'Open…', 'CmdOrCtrl+O'),
-      command('import', 'Import new version…', 'CmdOrCtrl+I'),
+      command('newProjectFolder', 'New project folder…'),
+      command('openFolder', 'Open folder…', 'CmdOrCtrl+O'),
+      {
+        id: 'menu-open-recent',
+        label: 'Open Recent',
+        submenu: recent.length
+          ? [
+              ...recent.map((r): MenuItemConstructorOptions => ({
+                label: r.label,
+                click: () => opts.onOpenRecent?.(r.folder),
+              })),
+              { type: 'separator' },
+              { label: 'Clear Recent', click: () => opts.onClearRecent?.() },
+            ]
+          : [{ label: 'No recent projects', enabled: false }],
+      },
+      { type: 'separator' },
+      command('addModel', 'Add file…', 'CmdOrCtrl+I'),
+      command('reloadFromDisk', 'Reload from disk'),
+      { type: 'separator' },
+      command('makeOwnProject', 'Make this folder its own project…'),
+      command('saveProjectAs', 'Save project as…'),
       ...(mac ? [] : [{ type: 'separator' } as const, { role: 'quit', label: 'Exit' } as const]),
     ],
   };
@@ -68,7 +94,8 @@ export function appMenuTemplate(opts: AppMenuOptions): MenuItemConstructorOption
   };
   const helpItems: MenuItemConstructorOptions[] = [
     command('shortcuts', 'Keyboard shortcuts'),
-    command('connect', 'Connect an AI agent…'),
+    command('connect', 'Set up your AI agent…'),
+    command('feedback', 'Send feedback…'),
   ];
   const developer: MenuItemConstructorOptions[] = opts.dev
     ? [

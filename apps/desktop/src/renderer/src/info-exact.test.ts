@@ -66,7 +66,7 @@ describe('approxRequest + ExactValues', () => {
     expect(again.bodyAreas.length + again.bodyBoxes.length + again.distances.length).toBe(0);
   });
 
-  it('OpenCascade gives no distance (NaN): ≈ stays, not asked again, a note says why (T12.6)', () => {
+  it('OpenCascade gives no distance (NaN): ≈ stays, not asked again, a note says why', () => {
     const items: SelectionItem[] = [
       { kind: 'body', id: 0 },
       { kind: 'body', id: 1 },

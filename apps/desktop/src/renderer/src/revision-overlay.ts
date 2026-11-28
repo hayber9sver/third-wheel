@@ -1,5 +1,5 @@
 /**
- * Revision view (T8.3), drawn over the shown model:
+ * Revision view, drawn over the shown model:
  * - ghosts: where lost / "check" markers were (`ghosts.ts`), faint dots and dashed lines in the
  *   marker's colour; an emphasised marker (hovered row, highlighted comment) is drawn bold and on
  *   top, so it can be found behind other parts.

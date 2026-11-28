@@ -86,7 +86,7 @@ describe('regionSamples', () => {
     expect(samples([{ kind: 'face', id: 9 }], [99]).bodies).toEqual([]);
   });
 
-  it('bodies the region lies on (T6.5)', () => {
+  it('bodies the region lies on', () => {
     expect(samples([], [0]).bodies).toEqual([0]);
     expect(samples([{ kind: 'edge', id: 0 }]).bodies).toEqual([0]);
   });

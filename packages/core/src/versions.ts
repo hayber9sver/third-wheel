@@ -1,7 +1,7 @@
 /**
- * Versioned file names (T8.4): `part.step`, `part_v2.step`, `part-rev3.step`, `part (2).step`,
+ * Versioned file names: `part.step`, `part_v2.step`, `part-rev3.step`, `part (2).step`,
  * `part copy.step` are versions of one model. Used to guess the earlier version of a file the user
- * opens (always asked, never acted on silently), to hint the AI, and by T8.5's version list.
+ * opens (always asked, never acted on silently), to hint the AI, and by the Versions list.
  */
 
 /** A model file name split into the name all its versions share and its version number. */
@@ -129,35 +129,73 @@ export function earlierVersions(
   });
 }
 
-/**
- * T9.2: whether two files' parts have the same overall size — the box around all bodies (from
- * their body fingerprints), sides sorted so a turned export (an STL saved Y-up) still fits; within
- * `share` of the larger side. Used to ask "Is this STEP the same part as that mesh?" (names differ).
- */
-export function sameOverallSize(
-  a: readonly { readonly size: readonly number[]; readonly centre: readonly number[] }[],
-  b: readonly { readonly size: readonly number[]; readonly centre: readonly number[] }[],
-  share = 0.05,
-): boolean {
-  const sides = (bodies: typeof a): number[] | undefined => {
-    if (bodies.length === 0) return undefined;
-    const lo = [Infinity, Infinity, Infinity];
-    const hi = [-Infinity, -Infinity, -Infinity];
-    for (const body of bodies)
-      for (let i = 0; i < 3; i++) {
-        const c = body.centre[i] ?? 0;
-        const h = (body.size[i] ?? 0) / 2;
-        lo[i] = Math.min(lo[i] ?? 0, c - h);
-        hi[i] = Math.max(hi[i] ?? 0, c + h);
-      }
-    return [0, 1, 2].map((i) => (hi[i] ?? 0) - (lo[i] ?? 0)).sort((x, y) => x - y);
-  };
-  const x = sides(a);
-  const y = sides(b);
-  if (!x || !y || !x.every(Number.isFinite) || !y.every(Number.isFinite)) return false;
-  if ((x[2] ?? 0) <= 0 || (y[2] ?? 0) <= 0) return false;
+type BodyBox = { readonly size: readonly number[]; readonly centre: readonly number[] };
+
+/** The box around all bodies (from their fingerprints): its sides x, y, z; undefined = no usable box. */
+function overallBox(bodies: readonly BodyBox[]): number[] | undefined {
+  if (bodies.length === 0) return undefined;
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (const body of bodies)
+    for (let i = 0; i < 3; i++) {
+      const c = body.centre[i] ?? 0;
+      const h = (body.size[i] ?? 0) / 2;
+      lo[i] = Math.min(lo[i] ?? 0, c - h);
+      hi[i] = Math.max(hi[i] ?? 0, c + h);
+    }
+  const box = [0, 1, 2].map((i) => (hi[i] ?? 0) - (lo[i] ?? 0));
+  return box.every(Number.isFinite) && Math.max(...box) > 0 ? box : undefined;
+}
+
+/** Sorted sides of both boxes within `share` of the larger side (a turned export still fits). */
+function sidesFit(a: readonly number[], b: readonly number[], share: number): boolean {
+  const x = [...a].sort((p, q) => p - q);
+  const y = [...b].sort((p, q) => p - q);
   return x.every((s, i) => {
     const t = y[i] ?? 0;
     return Math.abs(s - t) <= share * Math.max(s, t, 1);
   });
+}
+
+/**
+ * Whether two files' parts have the same overall size — the box around all bodies (from
+ * their body fingerprints), sides sorted so a turned export (an STL saved Y-up) still fits; within
+ * `share` of the larger side. Used to ask "Is this STEP the same part as that mesh?" (names differ).
+ */
+export function sameOverallSize(
+  a: readonly BodyBox[],
+  b: readonly BodyBox[],
+  share = 0.05,
+): boolean {
+  const x = overallBox(a);
+  const y = overallBox(b);
+  return x !== undefined && y !== undefined && sidesFit(x, y, share);
+}
+
+/** "40 × 20 × 8.5 mm": whole mm from 10 mm, one decimal below. */
+function boxText(box: readonly number[]): string {
+  const mm = (v: number): string => String(v >= 10 ? Math.round(v) : Math.round(v * 10) / 10);
+  return `${box.map(mm).join(' × ')} mm`;
+}
+
+/**
+ * Why a "new version" looks like another part, after its notes were moved onto it; undefined =
+ * nothing stands out. Either sign is enough: a side of the overall box (sides sorted) differs by
+ * more than `share` of the larger one, or more than half of the markers that held something were
+ * lost (at least two: one lost marker is often just the feature that was removed).
+ * E.g. "6 of 8 markers lost; size 40 × 20 × 10 mm → 120 × 80 × 5 mm".
+ */
+export function differentPartReason(
+  before: readonly BodyBox[] | undefined,
+  after: readonly BodyBox[],
+  markers: { readonly held: number; readonly lost: number },
+  share = 0.25,
+): string | undefined {
+  const reasons: string[] = [];
+  if (markers.held >= 2 && markers.lost * 2 > markers.held)
+    reasons.push(`${String(markers.lost)} of ${String(markers.held)} markers lost`);
+  const x = before ? overallBox(before) : undefined;
+  const y = overallBox(after);
+  if (x && y && !sidesFit(x, y, share)) reasons.push(`size ${boxText(x)} → ${boxText(y)}`);
+  return reasons.length ? reasons.join('; ') : undefined;
 }

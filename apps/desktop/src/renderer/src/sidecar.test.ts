@@ -6,7 +6,6 @@ import { PaintLayer, PaintRecord, type PaintState } from './paint.js';
 import {
   applyPaint,
   checkSidecar,
-  emptyNotesFor,
   fromAnnotations,
   MAX_SAMPLES,
   toAnnotations,
@@ -100,7 +99,7 @@ describe('sidecar', () => {
       { faceId: 0, triangles: [], pieces: [{ triangle: 2, tree: [0, 0, 1, 0] }] },
       { faceId: 1, triangles: [[4, 1]] },
     ]);
-    // Samples per face (T8.2), none on the marker; a cut triangle only where it is painted.
+    // Samples per face, none on the marker; a cut triangle only where it is painted.
     expect(m1?.paint.samples).toBeUndefined();
     const s0 = m1?.paint.faces[0]?.samples ?? [];
     expect(s0.length).toBeGreaterThanOrEqual(3 * 3);
@@ -159,7 +158,7 @@ describe('sidecar', () => {
     for (let t = 0; t < 5; t++) expect(layer.stateAt(t)).toEqual(states[t]);
   });
 
-  it('turns a pre-T7.5 note into the first AI reply', () => {
+  it('turns an old single `note` into the first AI reply', () => {
     const model = makeModel();
     const doc = save(model, paintWith(model, {}), [], [comment('c1', [])]);
     const old = JSON.parse(JSON.stringify(doc)) as Annotations;
@@ -234,7 +233,7 @@ describe('sidecar', () => {
     expect(checkSidecar(text, `sha256:${'b'.repeat(64)}`, model)).toMatchObject({
       ok: false,
       reason: 'other-version',
-      // T8.1: the other version's annotations come back (carried over or kept for T8.2).
+      // The other version's annotations come back (carried over or kept for the revision transfer).
       doc: { markers: [{ id: 'm1' }] },
       droppedFields: [],
     });
@@ -243,7 +242,7 @@ describe('sidecar', () => {
     expect(checkSidecar('{oops', HASH, model)).toMatchObject({ ok: false, reason: 'unreadable' });
   });
 
-  it('mesh files (T9.1): format written, no tessellation, read back; a STEP sidecar is refused', () => {
+  it('mesh files: format written, no tessellation, read back; a STEP sidecar is refused', () => {
     const stepModel = makeModel();
     const model = { ...stepModel, meshFormat: 'stl' as const };
     const doc = save(model, paintWith(model, { 1: 'm1' }), [marker('m1')]);
@@ -263,7 +262,7 @@ describe('sidecar', () => {
     expect(checkSidecar(text, HASH, stepModel)).toMatchObject({ ok: false, reason: 'unreadable' });
   });
 
-  it('writes the mesh hash when given (T8.1)', () => {
+  it('writes the mesh hash when given', () => {
     const model = makeModel();
     const meshHash = `sha256:${'d'.repeat(64)}`;
     const layer = paintWith(model, {});
@@ -281,7 +280,7 @@ describe('sidecar', () => {
     expect(checkSidecar(JSON.stringify(doc), HASH, model)).toMatchObject({ ok: true });
   });
 
-  it('writes the body tree only when there is one (T5.4)', () => {
+  it('writes the body tree only when there is one', () => {
     const model = makeModel();
     const paint = paintWith(model, {});
     expect(save(model, paint, []).bodyTree).toBeUndefined();
@@ -303,7 +302,7 @@ describe('sidecar', () => {
     expect(parseAnnotations(doc).ok).toBe(true);
   });
 
-  it('writes body fingerprints and one fingerprint per held entity (T6.2)', () => {
+  it('writes body fingerprints and one fingerprint per held entity', () => {
     const model = makeModel();
     const paint = paintWith(model, {});
     expect(save(model, paint, []).bodies).toBeUndefined();
@@ -355,29 +354,5 @@ describe('sidecar', () => {
     expect(fromAnnotations(doc, model).markers[0]?.entities).toEqual([
       { kind: 'face', id: 1, seq: 0 },
     ]);
-  });
-});
-
-describe('emptyNotesFor (T15.1)', () => {
-  const hash = `sha256:${'a'.repeat(64)}`;
-  const tess = { linearDeflection: 0.1, angularDeflection: 0.5 };
-
-  it.each([
-    ['bracket.stl', 'stl'],
-    ['Bracket.STL', 'stl'],
-    ['part.3mf', '3mf'],
-  ] as const)('%s gets %s notes without tessellation, which open again', (name, format) => {
-    const doc = emptyNotesFor({ name, contentHash: hash }, tess);
-    expect(doc.model).toEqual({ fileName: name, format, contentHash: hash });
-    expect(doc.tessellation).toBeUndefined();
-    const check = checkSidecar(JSON.stringify(doc), hash, { ...makeModel(), meshFormat: format });
-    expect(check.ok).toBe(true);
-  });
-
-  it('a STEP file gets step notes with its tessellation', () => {
-    const doc = emptyNotesFor({ name: 'bracket.step', contentHash: hash }, tess);
-    expect(doc.model.format).toBe('step');
-    expect(doc.tessellation).toEqual(tess);
-    expect(doc.tessellation).not.toBe(tess);
   });
 });

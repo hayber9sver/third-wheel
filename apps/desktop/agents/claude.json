@@ -1,0 +1,102 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "claude",
+  "label": "Claude Code",
+  "tab": "Claude Code",
+  "order": 10,
+  "tested": "Claude Code 2.1.327 on macOS (one-click, both scopes, replace, status check)",
+  "engine": "command",
+  "command": {
+    "program": {
+      "name": "claude",
+      "windows": ["claude.exe", "claude.cmd"],
+      "folders": ["~/.local/bin", "~/.claude/local"],
+      "editorExtension": "anthropic.claude-code-"
+    },
+    "add": ["mcp", "add", "{scope}", "{name}", "{env}", "--", "{command}", "{serverPath}"],
+    "env": ["--env", "{key}={value}"],
+    "remove": ["mcp", "remove", "{name}", "-s", "{where}"],
+    "scopes": {
+      "folder": {
+        "args": [],
+        "where": "local"
+      },
+      "user": {
+        "args": ["--scope", "user"],
+        "where": "user"
+      }
+    },
+    "entries": [
+      {
+        "where": "local",
+        "file": "~/.claude.json",
+        "fileEnv": "CLAUDE_CONFIG_DIR",
+        "key": ["projects", "{project}", "mcpServers", "{name}"]
+      },
+      {
+        "where": "project",
+        "file": ".mcp.json",
+        "key": ["mcpServers", "{name}"],
+        "approval": {
+          "files": [
+            {
+              "file": "~/.claude.json",
+              "fileEnv": "CLAUDE_CONFIG_DIR",
+              "key": ["projects", "{project}"]
+            },
+            {
+              "file": ".claude/settings.local.json",
+              "key": []
+            },
+            {
+              "file": ".claude/settings.json",
+              "key": []
+            },
+            {
+              "file": "~/.claude/settings.json",
+              "fileEnv": "CLAUDE_CONFIG_DIR",
+              "key": []
+            }
+          ],
+          "enabled": "enabledMcpjsonServers",
+          "disabled": "disabledMcpjsonServers",
+          "all": "enableAllProjectMcpServers"
+        }
+      },
+      {
+        "where": "user",
+        "file": "~/.claude.json",
+        "fileEnv": "CLAUDE_CONFIG_DIR",
+        "key": ["mcpServers", "{name}"]
+      }
+    ],
+    "check": true,
+    "timeoutSec": 20
+  },
+  "chat": {
+    "start": "claude",
+    "allow": {
+      "file": ".claude/settings.local.json",
+      "key": ["permissions", "allow"],
+      "rules": ["mcp__{name}", "Bash({cad})"],
+      "windowsRules": ["PowerShell({cad})"]
+    }
+  },
+  "manual": {
+    "command": true,
+    "json": {
+      "mcpServers": {
+        "{name}": {
+          "command": "{command}",
+          "args": ["{serverPath}"],
+          "env": "{env}"
+        }
+      }
+    }
+  },
+  "texts": {
+    "after": "Start a new Claude Code session: /mcp lists third-wheel.",
+    "scopeFolder": "Claude Code gets the tools when it starts in this folder (in a git project: anywhere in it; otherwise not in subfolders). Moved or renamed the folder? Add it again.",
+    "scopeUser": "The Third Wheel tools show up in every Claude Code session, in any folder (a folder’s own entry comes first)."
+  }
+}

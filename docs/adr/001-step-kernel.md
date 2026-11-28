@@ -30,7 +30,7 @@ unmaintained. A Python sidecar would add a second runtime to install on macOS + 
 ## Measurements
 
 Node 22.14, Apple Silicon, one process; `linearDeflection 0.1 mm`, `angularDeflection 0.5 rad`. Script:
-`packages/geometry/spike/kernel-spike.js` (run `node spike/kernel-spike.js <lib> <files…>` in `packages/geometry`).
+`packages/geometry/spike/kernel-spike.js`, removed once the choice was made (it is in the git history of v0.1.0).
 Samples were third-party 3D-printer CAD files, kept locally only (not committed, since deleted).
 
 | File                           | Size    | Bodies | Faces | Edges  | Vertices | Triangles | `occt-import-js` load | `occt-wasm` load (import + mesh + edges) |

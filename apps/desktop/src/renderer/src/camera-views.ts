@@ -66,6 +66,35 @@ export function fitDistance(radius: number, fovDeg: number, aspect: number): num
   return r / Math.sin(Math.min(vFov, hFov) / 2);
 }
 
+/** A left cover clamped to the view: at least one pixel of a `width` px view stays free. */
+function clampCover(width: number, coverLeft: number): number {
+  return Math.min(Math.max(coverLeft, 0), Math.max(width - 1, 0));
+}
+
+/**
+ * How far (CSS px) to move the picture to the right so the view's middle — where the orbit
+ * target is drawn — lands in the middle of the part a panel covering `coverLeft` px of the
+ * left side of a `width` px view leaves free.
+ */
+export function freeAreaShift(width: number, coverLeft: number): number {
+  return clampCover(width, coverLeft) / 2;
+}
+
+/**
+ * Camera distance so a sphere fits the part of a `width`×`height` view that a panel covering
+ * `coverLeft` px of its left side leaves free (vertical FOV in °).
+ */
+export function fitInFreeArea(
+  radius: number,
+  fovDeg: number,
+  width: number,
+  height: number,
+  coverLeft: number,
+): number {
+  const free = Math.max(width - clampCover(width, coverLeft), 1);
+  return fitDistance(radius, fovDeg, free / Math.max(height, 1));
+}
+
 /**
  * Axis-aligned bounding box per body, from its triangles (index ranges `triStart`) and its edge
  * segments (vertex ranges `edgeStart`) — the latter covers bodies made only of loose edges.

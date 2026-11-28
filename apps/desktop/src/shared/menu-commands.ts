@@ -1,8 +1,20 @@
 /**
- * App menu commands (T13.2): menu items the window carries out with its own code (the same as
+ * App menu commands: menu items the window carries out with its own code (the same as
  * its buttons and keys). Main sends one of these over `IPC.menuCommand`.
  */
-export const MENU_COMMANDS = ['open', 'import', 'undo', 'redo', 'shortcuts', 'connect'] as const;
+export const MENU_COMMANDS = [
+  'newProjectFolder',
+  'openFolder',
+  'addModel',
+  'reloadFromDisk',
+  'makeOwnProject',
+  'saveProjectAs',
+  'undo',
+  'redo',
+  'shortcuts',
+  'connect',
+  'feedback',
+] as const;
 export type MenuCommand = (typeof MENU_COMMANDS)[number];
 
 export function isMenuCommand(x: unknown): x is MenuCommand {
@@ -11,12 +23,17 @@ export function isMenuCommand(x: unknown): x is MenuCommand {
 
 /** Menu item ids (tests find items by them). */
 export const MENU_IDS: Readonly<Record<MenuCommand, string>> = {
-  open: 'menu-open',
-  import: 'menu-import',
+  newProjectFolder: 'menu-new-project-folder',
+  openFolder: 'menu-open-folder',
+  addModel: 'menu-add-model',
+  reloadFromDisk: 'menu-reload-from-disk',
+  makeOwnProject: 'menu-make-own-project',
+  saveProjectAs: 'menu-save-project-as',
   undo: 'menu-undo',
   redo: 'menu-redo',
   shortcuts: 'menu-shortcuts',
   connect: 'menu-connect',
+  feedback: 'menu-feedback',
 };
 
 /** One key press reaching both the page and the menu counts once if they are this close (ms). */

@@ -1,5 +1,5 @@
 /**
- * Client side of the app bridge (T7.1): find the running app through its bridge file, connect
+ * Client side of the app bridge: find the running app through its bridge file, connect
  * with the token, send requests. Protocol: `@third-wheel/core` bridge.ts.
  */
 import { readFile } from 'node:fs/promises';

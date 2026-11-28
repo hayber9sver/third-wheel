@@ -1,13 +1,16 @@
 /**
- * Text for the Info panel (T2.5) and the hover readout, pure. Numbers come from
+ * Text for the Info panel and the hover readout, pure. Numbers come from
  * `@third-wheel/geometry` (`entityInfo`, `measure`); this file only words and formats them.
  * Lengths in mm, angles in degrees; "≈" marks values taken from the mesh. Exact values from
- * OpenCascade (T2.8, "Exact values" button) replace them via {@link ExactValues}.
+ * OpenCascade ("Exact values" button) replace them via {@link ExactValues}.
  */
 import {
+  entityDimension,
   entityInfo,
   faceAreas,
   measure,
+  pairDimension,
+  type Dimension,
   pairKey,
   type EntityInfo,
   type EntityRef,
@@ -17,6 +20,7 @@ import {
   type Measurement,
   type V3,
 } from '@third-wheel/geometry';
+import type { DimensionSpec } from './dimension-overlay.js';
 import type { SelectionItem } from './selection.js';
 
 export interface InfoRow {
@@ -26,11 +30,11 @@ export interface InfoRow {
 export interface InfoBlock {
   readonly title: string;
   readonly rows: readonly InfoRow[];
-  /** Small grey line under the rows (e.g. why a value stays "≈", T12.6). */
+  /** Small grey line under the rows (e.g. why a value stays "≈"). */
   readonly note?: string;
 }
 
-/** OpenCascade returned no exact distance (NaN): the "≈" stays and this says why (T12.6). */
+/** OpenCascade returned no exact distance (NaN): the "≈" stays and this says why. */
 export const EXACT_DISTANCE_FAILED_NOTE =
   "Exact distance not available for these two (OpenCascade couldn't compute it); ≈ is measured on the mesh.";
 
@@ -73,7 +77,7 @@ export function infoTitle(info: EntityInfo): string {
 }
 
 /**
- * Exact values computed so far for the shown model (T2.8), by entity id / {@link pairKey}.
+ * Exact values computed so far for the shown model, by entity id / {@link pairKey}.
  * Filled from {@link ExactResult}s; cleared when another model loads.
  */
 export class ExactValues {
@@ -299,7 +303,7 @@ export function describeSelection(
 
 /**
  * What {@link describeSelection} still shows from the mesh ("≈") for these items: the request
- * for the "Exact values" button (T2.8). Empty when everything shown is exact.
+ * for the "Exact values" button. Empty when everything shown is exact.
  */
 export function approxRequest(
   m: InfoModel,
@@ -342,4 +346,32 @@ export function sizeHint(info: EntityInfo): string {
   if (info.halfAngle !== undefined)
     return `${degrees(info.halfAngle)}${info.form ? ` ${FORM_NAMES[info.form]}` : ''}`;
   return '';
+}
+
+/** The value on a drawn dimension: "40 mm", "≈ 2.5 mm", "Ø6 mm", "R5 mm", "90°". */
+export function dimensionLabel(d: Pick<Dimension, 'kind' | 'value' | 'exact'>): string {
+  const prefix = d.kind === 'diameter' ? 'Ø' : d.kind === 'radius' ? 'R' : '';
+  return d.kind === 'angle' ? degrees(d.value) : `${approx(d.exact)}${prefix}${mm(d.value)}`;
+}
+
+/**
+ * The one dimension drawn for 1–2 entities, with the same numbers Info shows (exact
+ * distances from `exact` swapped in); undefined for 0 or 3+ entities or nothing to draw.
+ */
+export function dimensionOf(
+  m: InfoModel,
+  items: readonly SelectionItem[],
+  exact: ExactValues = new ExactValues(),
+): DimensionSpec | undefined {
+  const [a, b] = items;
+  if (!a || items.length > 2) return undefined;
+  const d = b
+    ? pairDimension(
+        m,
+        a,
+        b,
+        measurementWithExact(measure(m, a, b), exact.distance.get(pairKey(a, b))),
+      )
+    : entityDimension(m, a);
+  return d && { from: d.from, to: d.to, label: dimensionLabel(d) };
 }

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "fileName": "lid.step",
+    "format": "step",
+    "contentHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "tessellation": {
+    "linearDeflection": 0.1,
+    "angularDeflection": 0.5
+  },
+  "markers": [
+    {
+      "id": "m1",
+      "name": "Snap fit",
+      "color": "#e5484d",
+      "visible": true,
+      "entities": [
+        {
+          "kind": "face",
+          "id": 7,
+          "seq": 1
+        }
+      ],
+      "paint": {
+        "faces": [
+          {
+            "faceId": 7,
+            "triangles": [[120, 3]],
+            "samples": [10, 2, 8, 11, 2, 8]
+          }
+        ]
+      }
+    }
+  ],
+  "comments": [
+    {
+      "id": "c1",
+      "text": "Snap fit too tight.",
+      "markerIds": ["m1"],
+      "status": "open",
+      "author": "human",
+      "createdAt": "2026-11-08T09:05:00.000Z",
+      "updatedAt": "2026-11-08T09:05:00.000Z",
+      "linkedModels": ["bracket_v2.step"]
+    }
+  ]
+}

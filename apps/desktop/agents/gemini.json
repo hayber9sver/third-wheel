@@ -1,0 +1,45 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "gemini",
+  "label": "Gemini CLI",
+  "tab": "Gemini CLI",
+  "order": 30,
+  "tested": null,
+  "engine": "command",
+  "command": {
+    "program": {
+      "name": "gemini",
+      "windows": ["gemini.cmd", "gemini.exe"],
+      "folders": ["~/.local/bin"]
+    },
+    "add": [
+      "mcp",
+      "add",
+      "{scope}",
+      "--timeout",
+      "1800000",
+      "{env}",
+      "{name}",
+      "{command}",
+      "{serverPath}"
+    ],
+    "env": ["-e", "{key}={value}"],
+    "remove": ["mcp", "remove", "-s", "{where}", "{name}"],
+    "scopes": { "user": { "args": ["-s", "user"], "where": "user" } },
+    "entries": [
+      { "where": "user", "file": "~/.gemini/settings.json", "key": ["mcpServers", "{name}"] }
+    ],
+    "timeoutSec": 30
+  },
+  "chat": { "start": "gemini" },
+  "manual": { "command": true },
+  "texts": {
+    "button": "Add to Gemini CLI",
+    "buttonHint": "For all your folders.",
+    "notFoundHint": "Gemini CLI wasn’t found in the usual places.",
+    "title": "Or run this once in a terminal",
+    "notFoundTitle": "Run this once in a terminal",
+    "where": "Leave out “-s user” for the current folder only. Keep --timeout (30 min, in ms): Gemini CLI stops a tool after 10 min by default, and waiting for your review or chat message takes up to 25 min. Then start Gemini CLI and type /mcp: third-wheel should be listed.",
+    "after": "Restart Gemini CLI: /mcp lists third-wheel."
+  }
+}

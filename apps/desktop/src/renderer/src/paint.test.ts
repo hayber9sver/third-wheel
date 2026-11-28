@@ -3,7 +3,7 @@ import { forEachPiece, PaintLayer, PaintRecord } from './paint.js';
 
 const none = new Set<string>();
 
-describe('PaintLayer (T3.3)', () => {
+describe('PaintLayer', () => {
   it('paints, repaints with another marker and counts per marker', () => {
     const p = new PaintLayer(10);
     expect(p.paint([0, 1, 2], 'm1', none)).toBe(3);
@@ -64,7 +64,7 @@ describe('PaintLayer (T3.3)', () => {
     expect(p.groups([])).toEqual([]);
   });
 
-  it('records a stroke and restores before / after (T3.5)', () => {
+  it('records a stroke and restores before / after', () => {
     const p = new PaintLayer(6);
     p.paint([0, 1], 'm1', none);
     const r = new PaintRecord();
@@ -106,7 +106,7 @@ function square(): { positions: Float32Array; indices: Uint32Array } {
   };
 }
 
-describe('PaintLayer finer paint (T3.6)', () => {
+describe('PaintLayer finer paint', () => {
   const none = new Set<string>();
   const dot = (x: number, y: number, radius = 3) => [{ center: [x, y, 0] as const, radius }];
 
@@ -133,7 +133,7 @@ describe('PaintLayer finer paint (T3.6)', () => {
     expect(painted).toBeGreaterThan(4);
   });
 
-  it('a stamp that changes nothing keeps the pieces object and the block stamp (T12.2)', () => {
+  it('a stamp that changes nothing keeps the pieces object and the block stamp', () => {
     const p = new PaintLayer(2, square());
     p.paint([0], 'm1', none, undefined, dot(70, 30));
     const node = p.splitAt(0);
@@ -228,7 +228,7 @@ describe('PaintLayer finer paint (T3.6)', () => {
   });
 });
 
-describe('PaintLayer lookups (T4.2)', () => {
+describe('PaintLayer lookups', () => {
   const none = new Set<string>();
   it('markersAt lists whole and piece paint; trianglesOf finds a set of markers', () => {
     const p = new PaintLayer(2, square());

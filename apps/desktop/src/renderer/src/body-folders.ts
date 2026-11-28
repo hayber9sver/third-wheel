@@ -1,5 +1,5 @@
 /**
- * The user's own folders in the body list (T5.4). Pure: no DOM.
+ * The user's own folders in the body list. Pure: no DOM.
  *
  * Starts from the STEP tree (`buildBodyTree`) and puts on top of it: user folders, and bodies /
  * STEP assemblies moved somewhere else (free sorting: any row can go into any folder or to

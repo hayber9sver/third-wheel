@@ -1,5 +1,5 @@
 /**
- * 3D comment pins (T4.3), pure part: which comments get a pin (`pinSpecs`) and where it may sit
+ * 3D comment pins, pure part: which comments get a pin (`pinSpecs`) and where it may sit
  * (`pinSpots` — per CAD face / edge piece / vertex of the comment's geometry, the point nearest
  * the centre of its bounding box, so a pin lies on the surface, not in the air). The DOM overlay
  * that draws the pins and picks the visible spot is `pin-overlay.ts`.
@@ -59,13 +59,13 @@ export function pinSpecs(
 /** Most spots a pin may hop between (nearest the centre first). */
 export const MAX_PIN_SPOTS = 48;
 /**
- * Most extra spots spread over the triangles (T4.3): one spot per face can sit
+ * Most extra spots spread over the triangles: one spot per face can sit
  * on the hidden side of a curved face (a ring seen from the side) while the rest of it is visible.
  */
 export const MAX_SPREAD_SPOTS = 192;
 
 /**
- * Spots a pin may sit on (T4.3): for each B-rep face among the triangles
+ * Spots a pin may sit on: for each B-rep face among the triangles
  * (`vertexFace` = face per vertex index), each edge segment and each vertex point, the point
  * nearest the centre of their bounding box — sorted by that distance, at most `max`. The first is
  * the preferred spot; the viewport moves the pin to the first one it can see after a camera move.

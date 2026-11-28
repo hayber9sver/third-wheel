@@ -1,5 +1,5 @@
 /**
- * Mesh hash (T8.1): one SHA-256 over the arrays that annotations point into — triangles, their
+ * Mesh hash: one SHA-256 over the arrays that annotations point into — triangles, their
  * faces, and the face / edge / vertex → body maps. Two STEP files with the same hash give the same
  * triangle numbers and entity ids, so a sidecar made for one fits the other exactly (a re-export
  * that only changed the file's header or ids inside it). Body names are left out on purpose:

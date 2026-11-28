@@ -1,11 +1,11 @@
 /**
  * Left-panel body list: the STEP assemblies as collapsible folders, one row per body with a
  * show/hide eye, the name and a zoom button; folders add a chevron that opens/closes them. Clicking
- * a name adds/removes the body or everything in the folder, Shift adds a range (T2.6, same as
+ * a name adds/removes the body or everything in the folder, Shift adds a range (same as
  * clicks in the view); hovering a row reports its bodies (the viewport highlights them). Plus
  * "Show all / Hide all".
  *
- * User folders (T5.4, SolidWorks / Blender convention): "+ Folder" in the heading, right-click → "Move to new folder" /
+ * User folders (SolidWorks / Blender convention): "+ Folder" in the heading, right-click → "Move to new folder" /
  * "Move to folder ▸"; drag rows onto a folder (or onto empty space = top level); double-click or
  * F2 renames a user folder; right-click → "Delete folder" (or Delete) moves its contents out. The
  * arrangement itself lives in `BodyFolders`.
@@ -117,7 +117,7 @@ export class BodyList {
       this.visible.fill(show);
       this.update();
     });
-    // "+ Folder" (T5.4): always an empty folder at the top level, ready to name.
+    // "+ Folder": always an empty folder at the top level, ready to name.
     this.folderButton.type = 'button';
     this.folderButton.className = 'link-btn';
     this.folderButton.dataset.action = 'add-folder';
@@ -350,7 +350,7 @@ export class BodyList {
         },
       ];
     }
-    // Right-clicking a body that isn't selected selects it first (like the view, T3.7).
+    // Right-clicking a body that isn't selected selects it first (like the view).
     if (key.startsWith('b')) {
       const b = Number(key.slice(1));
       if (!this.selected.has(b)) this.onSelect([b], 'toggle');

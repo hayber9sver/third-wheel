@@ -1,5 +1,5 @@
 /**
- * Points spread evenly over painted area, per CAD face (T8.2): what the sidecar keeps so paint can
+ * Points spread evenly over painted area, per CAD face: what the sidecar keeps so paint can
  * be moved onto a new revision of the model, whatever its tessellation. Pure.
  *
  * Every painted triangle (or painted piece of a cut one) is filled with a lattice about one

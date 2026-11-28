@@ -1,5 +1,5 @@
 /**
- * App bridge methods for the MCP tools (T7.2): params (checked by the app with these schemas)
+ * App bridge methods for the MCP tools: params (checked by the app with these schemas)
  * and results. The MCP server (`packages/mcp-server`) turns them into tools; spec in
  * `docs/mcp-tools.md`. Pure — shared by the app window and the MCP server.
  */
@@ -26,7 +26,7 @@ export function modelIdOf(contentHash: string): string {
 
 /** STEP files: full experience (entity selection, versions). */
 export const STEP_EXTENSIONS: readonly string[] = ['.step', '.stp'];
-/** Mesh files (T9.1, mesh-only mode): brush + comments, no entity selection. */
+/** Mesh files (mesh-only mode): brush + comments, no entity selection. */
 export const MESH_EXTENSIONS: readonly string[] = ['.stl', '.3mf'];
 /** Model files `load_model` and the Open dialog open. */
 export const LOADABLE_EXTENSIONS: readonly string[] = [...STEP_EXTENSIONS, ...MESH_EXTENSIONS];
@@ -37,14 +37,14 @@ export const MAX_WAIT_SECONDS = 300;
 export const DEFAULT_RENDER_SIZE = 384;
 export const MAX_RENDER_SIZE = 768;
 export const MIN_RENDER_SIZE = 64;
-/** Most groups in one contact sheet (T6.4). */
+/** Most groups in one contact sheet. */
 export const MAX_RENDER_GROUPS = 4;
 const MAX_IDS = 200;
 const idText = z.string().min(1).max(64);
 const modelId = z.string().min(1).max(64);
 
 /**
- * `load` (main reads the file, then the window shows it). `revisionOf` (T8.1): modelId of a model
+ * `load` (main reads the file, then the window shows it). `revisionOf`: modelId of a model
  * loaded earlier in this session that the new file is a new version of (another file name).
  */
 export const loadParamsSchema = z.object({
@@ -53,14 +53,14 @@ export const loadParamsSchema = z.object({
 });
 
 /**
- * How the previous version's annotations came to the new one (T8.1): `carried` = same geometry,
- * moved over exactly; `moved` = geometry changed, moved over by matching geometry (T8.2, see
+ * How the previous version's annotations came to the new one: `carried` = same geometry,
+ * moved over exactly; `moved` = geometry changed, moved over by matching geometry (see
  * `transfer`); `waiting` = geometry changed and the move failed (kept, not shown); `none` = it had
  * none; `own` = the new file already has its own annotations (they are used).
  */
 export type RevisionAnnotations = 'carried' | 'moved' | 'waiting' | 'none' | 'own';
 
-/** A marker the transfer could not place exactly (T8.2). */
+/** A marker the transfer could not place exactly. */
 export interface TransferredMarker {
   readonly id: string;
   readonly name: string;
@@ -68,7 +68,7 @@ export interface TransferredMarker {
   readonly status: 'changed' | 'lost' | 'check';
 }
 
-/** Result of moving annotations onto changed geometry (T8.2). */
+/** Result of moving annotations onto changed geometry. */
 export interface TransferSummary {
   readonly found: number;
   readonly changed: number;
@@ -76,11 +76,16 @@ export interface TransferSummary {
   readonly check: number;
   /** Every marker not found where it was. */
   readonly flagged: readonly TransferredMarker[];
-  /** T9.2: paint moved from a mesh file (STL / 3MF) onto this STEP — how well it matched. */
+  /** Paint moved from a mesh file (STL / 3MF) onto this STEP — how well it matched. */
   readonly fromMesh?: MeshCoverage;
+  /**
+   * STEP → STEP: why the new file looks like another part, not a version (most markers lost, or a
+   * very different size), e.g. "6 of 8 markers lost". The markers were moved anyway.
+   */
+  readonly looksDifferent?: string;
 }
 
-/** T9.2 coverage report: paint points of a mesh's notes landed on the STEP surface. */
+/** Mesh → STEP coverage report: paint points of a mesh's notes landed on the STEP surface. */
 export interface MeshCoverage {
   /** Painted sample points in all markers. */
   readonly points: number;
@@ -106,6 +111,13 @@ export interface RevisionInfo {
   readonly comments: number;
   /** Set when `annotations` is `moved`. */
   readonly transfer?: TransferSummary;
+  /**
+   * `own`: names of the new file's markers that are the part's markers of the same name (they
+   * took that marker's id, colour and comments).
+   */
+  readonly matched?: readonly string[];
+  /** `own`: its markers that got a free colour (`taken` = the colour another marker has). */
+  readonly recoloured?: readonly { readonly name: string; readonly taken: string }[];
 }
 
 export interface LoadResult {
@@ -114,25 +126,29 @@ export interface LoadResult {
   readonly path: string;
   readonly bodies: number;
   readonly faces: number;
-  /** Set for a mesh file (T9.1): paint + comments only, no entity ids (`faces` = bodies). */
+  /** Set for a mesh file: paint + comments only, no entity ids (`faces` = bodies). */
   readonly mesh?: 'stl' | '3mf';
   readonly markers: number;
   /** Comments by status. */
   readonly comments: Readonly<Record<CommentStatus, number>>;
-  /** Set when the file is a new version of a model loaded before (T8.1). */
+  /** Set when the file is a new version of a model loaded before. */
   readonly revision?: RevisionInfo;
   /**
-   * T8.4: the file looks like a newer copy of a model loaded this session, but `revisionOf` was
+   * The file looks like a newer copy of a model loaded this session, but `revisionOf` was
    * not given — what to do about it.
    */
   readonly hint?: string;
-  /** T8.4: this load overwrote the previous version on disk; export the next one under a new name. */
+  /** A version link was moved, or refused (a circle). */
   readonly warning?: string;
   /**
    * With `revisionOf`: the user's body names from the previous version are mostly gone from this file
    * (a CAD round trip dropped them) — how to put them back.
    */
   readonly namesLost?: string;
+  /** The project the model belongs to: save new versions into `folder`. */
+  readonly project?: { readonly name: string; readonly folder: string };
+  /** A free path in the project folder for the next export (`part_v2.step` → `part_v3.step`). */
+  readonly saveNextAs?: string;
 }
 
 /** `annotations`: the review payload (geometry `reviewPayload`) as an object. */
@@ -142,12 +158,12 @@ export const annotationsParamsSchema = z.object({
   statuses: z.array(commentStatusSchema).min(1).max(3).optional(),
 });
 
-/** Most other models one review request can cover (T7.4). */
+/** Most other models one review request can cover. */
 export const MAX_ALSO_MODELS = 3;
 
 /**
  * `request_review`: show the user a review request with an optional message. `modelId` is the shown
- * model; `alsoModelIds` are other models loaded this session that belong to the same review (T7.4:
+ * model; `alsoModelIds` are other models loaded this session that belong to the same review (
  * two parts that must fit) — the banner lets the user switch between them, one Send answers all.
  */
 export const requestReviewParamsSchema = z.object({
@@ -165,11 +181,11 @@ export const waitReviewParamsSchema = z.object({
   timeoutSec: z.number().min(0).max(MAX_WAIT_SECONDS),
 });
 /**
- * `sent`: the user clicked "Send to AI" (read the annotations now). `waiting`: time ran out, call
+ * `sent`: the user clicked "Send review" (read the annotations now). `waiting`: time ran out, call
  * again. `cancelled`: the user dismissed it, another request replaced it, or another model opened.
  */
 export type ReviewState = 'sent' | 'waiting' | 'cancelled';
-/** One model of a review that covers several (T7.4). */
+/** One model of a review that covers several. */
 export interface ReviewModelCount {
   readonly modelId: string;
   readonly name: string;
@@ -260,7 +276,7 @@ export const setCommentStatusParamsSchema = z.object({
 export interface SetCommentStatusResult {
   readonly commentId: string;
   readonly status: CommentStatus;
-  /** The AI reply the note became (T7.5); missing without a note. */
+  /** The AI reply the note became; missing without a note. */
   readonly replyId?: string;
   /** False when it already had this status and no note was given. */
   readonly changed: boolean;
@@ -268,7 +284,7 @@ export interface SetCommentStatusResult {
   readonly partsUpdated?: number;
 }
 
-/** `reply_comment` (T7.5): the AI answers in a comment's thread without changing its status. */
+/** `reply_comment`: the AI answers in a comment's thread without changing its status. */
 export const replyCommentParamsSchema = z.object({
   modelId,
   commentId: idText,

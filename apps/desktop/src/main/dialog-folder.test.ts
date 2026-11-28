@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dialogStartFolder } from './dialog-folder.js';
 
-describe('dialogStartFolder (T12.8)', () => {
+describe('dialogStartFolder', () => {
   const folder = join('models', 'bracket');
   const model = join(folder, 'bracket.step');
   const opened = (p: string): boolean => p === model;

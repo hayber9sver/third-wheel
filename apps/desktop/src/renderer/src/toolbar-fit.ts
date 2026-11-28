@@ -1,9 +1,9 @@
 /**
- * Toolbar fit (T10.1): the toolbar stays one row from the 960 px minimum window up. When it
+ * Toolbar fit: the toolbar stays one row from the 960 px minimum window up. When it
  * doesn't fit, it gets more compact step by step (like SolidWorks dropping button text):
- *   1 — logo without the "Third Wheel" name
- *   2 — Open, Versions, Select / Brush / Smart fill and the Pick filters as icons only
- *       (tooltips name them; Open / Versions shrink with the tools)
+ *   1 — Select / Brush / Smart fill and the Pick filters as icons only (tooltips name them)
+ *   2 — Open folder, Add file, Parts ▾ and Versions ▾ as icons only (they keep their labels
+ *       longer: their icons say less than the tools')
  *   3 — no "Pick" / "Size" / "Angle" labels, "Add ▾", "Whole face", a shorter marker name,
  *       tighter gaps
  * The level is the one the widest tool needs, so switching tools never moves anything.

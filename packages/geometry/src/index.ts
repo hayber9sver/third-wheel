@@ -36,6 +36,7 @@ export {
   type InfoModel,
   type Measurement,
 } from './entity-info.js';
+export { entityDimension, pairDimension, type Dimension, type DimensionKind } from './dimension.js';
 export type { V3 } from './vec.js';
 export {
   isEmptyExactRequest,
@@ -44,11 +45,13 @@ export {
   type ExactRequest,
   type ExactResult,
 } from './exact.js';
+export { CHAIN_ANGLE_DEG, edgesInChain } from './edge-chain.js';
 export { meshHash, type MeshHashModel } from './mesh-hash.js';
 export { bodyFingerprints, edgeMidpoint, entityFingerprints, faceCentres } from './fingerprint.js';
 export {
   describeEntity,
   estimateTokens,
+  commentPayload,
   filterReviewPayload,
   reviewPayload,
   reviewPayloadText,

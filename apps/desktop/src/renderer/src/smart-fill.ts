@@ -1,5 +1,5 @@
 /**
- * Smart fill (T3.4), pure (no three.js): which triangles a click fills.
+ * Smart fill, pure (no three.js): which triangles a click fills.
  *
  * `TriangleAdjacency` links triangles that share an edge. CAD faces are meshed separately, so
  * vertices are joined by exact position first (OCCT meshes a shared B-rep edge once, so both
@@ -158,7 +158,7 @@ export function smartFill(
 }
 
 /**
- * Brush patch (slicer rule, W1): of the triangles inside the brush ball (`inBall`), those
+ * Brush patch (slicer rule): of the triangles inside the brush ball (`inBall`), those
  * connected to `seed` (the triangle under the stamp) through other triangles of the ball that
  * face the camera (`facing`). Keeps the back of a thin wall, a parallel wall behind a gap and a
  * nearby separate part clean. The seed is always kept (it was hit, so it is seen).

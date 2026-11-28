@@ -1,5 +1,5 @@
 /**
- * Parts in front of a region (T6.5), pure. Rays go from points of the
+ * Parts in front of a region, pure. Rays go from points of the
  * region towards the camera; a ray that meets nothing = that point is seen. When too little of the
  * region is seen from its preferred direction, the 6 axis views and 8 iso corners are tried too
  * and the clearest wins (slightly favouring the preferred one). Other bodies still in front are

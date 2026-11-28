@@ -1,9 +1,9 @@
 /**
- * Paint layer (T3.3): which marker painted each triangle of the import (pure, no three.js).
+ * Paint layer: which marker painted each triangle of the import (pure, no three.js).
  * One marker per triangle — painting with another marker repaints it. Triangles owned by a
  * marker in `locked` (hidden markers) are never painted over or erased.
  *
- * Finer paint (T3.6, like the PrusaSlicer / OrcaSlicer paint tools): a brush stamp whose circle
+ * Finer paint (like the PrusaSlicer / OrcaSlicer paint tools): a brush stamp whose circle
  * edge crosses a big triangle cuts it into 4 at its edge midpoints, again and again near the
  * circle edge, until the pieces are about a third of the brush radius; a piece is painted when
  * its centre is inside the ball. Only the paint is cut — the model, picking and Smart fill keep
@@ -34,7 +34,7 @@ export interface PaintGeometry {
 }
 
 /**
- * Triangles per paint block (T12.2): the layer stamps a block on every change of its paint, so
+ * Triangles per paint block: the layer stamps a block on every change of its paint, so
  * renderers rebuild only the blocks that changed (a brush step touches a few dozen triangles of
  * a million).
  */
@@ -171,7 +171,7 @@ export class PaintLayer {
     return this.toState(this.nodeAt(t));
   }
 
-  /** Markers with any paint (whole or a piece) on triangle `t` (T4.2: comments on a click). */
+  /** Markers with any paint (whole or a piece) on triangle `t` (comments on a click). */
   markersAt(t: number): string[] {
     const out: string[] = [];
     for (const s of slotsIn(this.nodeAt(t))) {
@@ -208,7 +208,7 @@ export class PaintLayer {
   }
 
   /**
-   * Triangles holding paint of each of `markerIds` (one pass for all — comment pins, T4.3).
+   * Triangles holding paint of each of `markerIds` (one pass for all — comment pins).
    * Markers without paint are left out.
    */
   trianglesByMarker(markerIds: Iterable<string>): Map<string, number[]> {
@@ -453,7 +453,7 @@ function assignAll(node: PaintNode, slot: number, locked: ReadonlySet<number>): 
 /**
  * One brush stamp on a (piece of a) triangle a b c at cut depth `depth`. Fully inside → all of
  * it; crossed by the ball edge → cut while bigger than the piece size, then a piece takes the
- * paint when its centre is inside (a whole import triangle small enough: when touched, as T3.3).
+ * paint when its centre is inside (a whole import triangle small enough: painted when touched).
  */
 function stamp(
   node: PaintNode,
@@ -669,9 +669,9 @@ export function closestDist2(p: V3, a: V3, b: V3, c: V3): number {
 }
 
 /**
- * What one undo step changed (T3.5): per triangle the paint before and after (first "before"
+ * What one undo step changed: per triangle the paint before and after (first "before"
  * and last "after" win when a triangle changes twice). Marker ids, not slots — a deleted
- * marker's slot can be reused before the step is undone. Cut triangles (T3.6) keep their pieces
+ * marker's slot can be reused before the step is undone. Cut triangles keep their pieces
  * as id-index trees on the side; plain triangles stay ~10 bytes each once sealed.
  */
 export class PaintRecord {
@@ -774,7 +774,7 @@ const TREE = 0xffff;
 /**
  * Paints and erases a small throw-away grid with brush stamps, so the JavaScript engine has
  * optimised the paint code before the first real stroke (cold, its first step took ~10× longer:
- * 16 ms on a fast stroke on 1M triangles, T12.2). Call in idle time after a load; ~15 ms.
+ * 16 ms on a fast stroke on 1M triangles). Call in idle time after a load; ~15 ms.
  */
 export function warmPaintCode(): void {
   const n = 12;

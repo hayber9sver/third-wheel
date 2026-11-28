@@ -1,5 +1,5 @@
 /**
- * Hover + selection highlight in the viewport (T2.2). Two layers — selection, then hover on top —
+ * Hover + selection highlight in the viewport. Two layers — selection, then hover on top —
  * each with a tinted face mesh, thick edge lines (screen-space width, three's LineSegments2) and
  * round vertex dots. Each layer owns small copies of its geometry (sharing the model's buffers
  * would free them on dispose) and rebuilds them only when its items change.
@@ -241,7 +241,7 @@ export class Highlighter {
 
   /**
    * Highlight buffers of `items` plus import `triangles` (painted ones), visible bodies only —
-   * for framing (T4.2) and comment pin anchors (T4.3).
+   * for framing and comment pin anchors.
    */
   buffersOf(items: readonly SelectionItem[], triangles: ArrayLike<number> = []): HighlightBuffers {
     const buffers = highlightBuffers(items, this.model, this.faceTris, this.visible);

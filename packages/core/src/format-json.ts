@@ -1,5 +1,5 @@
 /**
- * Human-readable JSON for the sidecar (T5.2): 2-space indent like Prettier, but
+ * Human-readable JSON for the sidecar: 2-space indent like Prettier, but
  * anything that fits on one line stays on one line (`{ "kind": "face", "id": 7, "seq": 1 }`,
  * a run `[120, 3]`), and long number lists (samples) wrap at the line width instead of taking
  * one line per number — keeps the file readable without making it much bigger.

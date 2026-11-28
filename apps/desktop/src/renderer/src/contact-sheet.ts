@@ -1,5 +1,5 @@
 /**
- * Contact sheet (T6.4): up to 4 region pictures (T6.3) in one image, so the AI gets several
+ * Contact sheet: up to 4 region pictures in one image, so the AI gets several
  * places in one image request. Layout: 1 region → one 768² picture, 2 → side by side (768 × 384,
  * half the image tokens), 3–4 → 2 × 2 grid of 384² tiles. Tiles are split by thin grey lines and
  * numbered 1…4 in their top-left corner. Pure layout + pixel copying; the

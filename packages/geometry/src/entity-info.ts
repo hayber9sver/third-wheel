@@ -1,7 +1,7 @@
 /**
- * Read-only facts about picked entities and measurements between two of them (T2.5). Pure: works
+ * Read-only facts about picked entities and measurements between two of them. Pure: works
  * on a {@link StepModel} only (exact values from `faceGeometry` / `edgeGeometry`, the rest from the
- * mesh). Numbers, not text — the info panel formats them, the AI payload (T6.2) will reuse them.
+ * mesh). Numbers, not text — the info panel formats them, the AI payload will reuse them.
  * Lengths in mm (OpenCascade converts STEP units to mm), angles in degrees.
  */
 import { EDGE_GEOMETRY_STRIDE, FACE_GEOMETRY_STRIDE, type StepModel } from './model.js';
@@ -416,6 +416,19 @@ export function meshDistance(
   a: EntityRef,
   b: EntityRef,
 ): { value: number; exact: boolean } | undefined {
+  const c = meshClosest(m, a, b);
+  return c && { value: c.value, exact: c.exact };
+}
+
+/**
+ * Shortest distance on the mesh with the two points where it is reached (`from` on `a`, `to` on
+ * `b`); undefined when there is nothing to compare or too much work.
+ */
+export function meshClosest(
+  m: InfoModel,
+  a: EntityRef,
+  b: EntityRef,
+): { value: number; exact: boolean; from: V3; to: V3 } | undefined {
   // Count first: two large bodies would otherwise build millions of triangles for nothing.
   const na = countPrims(m, a);
   const nb = countPrims(m, b);
@@ -425,6 +438,15 @@ export function meshDistance(
   const exactKind = (r: EntityRef): boolean =>
     r.kind === 'vertex' || (r.kind === 'edge' && m.edgeTypes[r.id] === 'line');
   let best = Infinity;
+  let from: V3 = [NaN, NaN, NaN];
+  let to: V3 = [NaN, NaN, NaN];
+  const consider = (p: V3, q: V3, swap: boolean): void => {
+    const d = dist(p, q);
+    if (d >= best) return;
+    best = d;
+    from = swap ? q : p;
+    to = swap ? p : q;
+  };
   // Every pair of primitives; each pair's minimum is at a vertex of one against the other, or
   // between two edges (segments / triangle sides).
   const vertsOf = (p: Prims): V3[] => [...p.points, ...p.segments.flat(), ...p.triangles.flat()];
@@ -436,34 +458,37 @@ export function meshDistance(
       [z, x],
     ]),
   ];
-  const against = (verts: V3[], other: Prims): void => {
+  const against = (verts: V3[], other: Prims, swap: boolean): void => {
     for (const v of verts) {
-      for (const q of other.points) best = Math.min(best, dist(v, q));
-      for (const [s0, s1] of other.segments) best = Math.min(best, pointSegment(v, s0, s1));
+      for (const q of other.points) consider(v, q, swap);
+      for (const [s0, s1] of other.segments) consider(v, closestOnSegment(v, s0, s1), swap);
       for (const [t0, t1, t2] of other.triangles)
-        best = Math.min(best, dist(v, closestOnTriangle(v, t0, t1, t2)));
+        consider(v, closestOnTriangle(v, t0, t1, t2), swap);
     }
   };
-  against(vertsOf(pa), pb);
-  against(vertsOf(pb), pa);
+  against(vertsOf(pa), pb, false);
+  against(vertsOf(pb), pa, true);
   const sa = sidesOf(pa);
   const sb = sidesOf(pb);
   for (const [a0, a1] of sa)
-    for (const [b0, b1] of sb) best = Math.min(best, segmentSegment(a0, a1, b0, b1));
-  return { value: best, exact: exactKind(a) && exactKind(b) };
+    for (const [b0, b1] of sb) {
+      const [p, q] = segmentSegment(a0, a1, b0, b1);
+      consider(p, q, false);
+    }
+  return { value: best, exact: exactKind(a) && exactKind(b), from, to };
 }
 
 const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
 
-function pointSegment(p: V3, a: V3, b: V3): number {
+function closestOnSegment(p: V3, a: V3, b: V3): V3 {
   const ab = sub(b, a);
   const l2 = dot(ab, ab);
   const t = l2 > 0 ? clamp01(dot(sub(p, a), ab) / l2) : 0;
-  return dist(p, add(a, scale(ab, t)));
+  return add(a, scale(ab, t));
 }
 
-/** Shortest distance between segments p1q1 and p2q2 (Ericson, Real-Time Collision Detection 5.1.9). */
-function segmentSegment(p1: V3, q1: V3, p2: V3, q2: V3): number {
+/** Closest points of segments p1q1 and p2q2 (Ericson, Real-Time Collision Detection 5.1.9). */
+function segmentSegment(p1: V3, q1: V3, p2: V3, q2: V3): [V3, V3] {
   const d1 = sub(q1, p1);
   const d2 = sub(q2, p2);
   const r = sub(p1, p2);
@@ -472,7 +497,7 @@ function segmentSegment(p1: V3, q1: V3, p2: V3, q2: V3): number {
   const f = dot(d2, r);
   let s: number;
   let t: number;
-  if (a <= 1e-18 && e <= 1e-18) return dist(p1, p2);
+  if (a <= 1e-18 && e <= 1e-18) return [p1, p2];
   if (a <= 1e-18) {
     s = 0;
     t = clamp01(f / e);
@@ -495,7 +520,7 @@ function segmentSegment(p1: V3, q1: V3, p2: V3, q2: V3): number {
       }
     }
   }
-  return dist(add(p1, scale(d1, s)), add(p2, scale(d2, t)));
+  return [add(p1, scale(d1, s)), add(p2, scale(d2, t))];
 }
 
 /** Closest point on triangle abc to p (Ericson 5.1.5). */

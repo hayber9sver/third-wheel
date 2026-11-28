@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Vec3 } from './camera-views.js';
 import { closestOnSegment, closestOnTriangle, pinSpecs, pinSpots } from './comment-pins.js';
 import { Comments } from './comments.js';
+import { counterIds } from './markers.js';
 
 function close(a: Vec3 | undefined, b: Vec3): void {
   expect(a).toBeDefined();
@@ -126,7 +127,7 @@ describe('pinSpots', () => {
 });
 
 describe('pinSpecs', () => {
-  const comments = new Comments();
+  const comments = new Comments(undefined, counterIds('c'));
   comments.add('Fillet\nthis edge', ['m1']); // c1
   comments.add('No markers', []); // c2
   comments.add('On a hidden marker', ['m2']); // c3

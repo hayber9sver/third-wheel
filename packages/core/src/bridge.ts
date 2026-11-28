@@ -1,5 +1,5 @@
 /**
- * App bridge protocol (T7.1): how the MCP server talks to the running app over a localhost
+ * App bridge protocol: how the MCP server talks to the running app over a localhost
  * WebSocket. Pure — the app (`apps/desktop/src/main/bridge.ts`) and the client
  * (`packages/mcp-server/src/bridge-client.ts`) share it.
  *
@@ -124,7 +124,7 @@ export interface StatusResult {
     readonly name: string;
     /** `sha256:<hex>` of the file's bytes. */
     readonly contentHash: string;
-    /** Short id for the MCP tools (`modelIdOf`, T7.2). */
+    /** Short id for the MCP tools (`modelIdOf`). */
     readonly modelId: string;
   } | null;
   /** What the open model holds, so an AI that just connected knows what is waiting (missing = no model). */

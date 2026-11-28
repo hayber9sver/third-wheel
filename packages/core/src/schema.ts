@@ -1,9 +1,9 @@
 /**
- * Annotation schema (T4.1): what `<model>.thirdwheel.json` holds and what the review payload is
- * built from. Pure zod, no I/O (saving / loading is T5.1, the written spec T5.2).
+ * Annotation schema: what `<model>.thirdwheel.json` holds and what the review payload is
+ * built from. Pure zod, no I/O (saving / loading is elsewhere; the written spec is docs/file-format.md).
  *
  * Markers are separate from comments: a marker holds paint and / or
- * exact B-rep entities (T3.7); a comment references markers by id only. There is no separate
+ * exact B-rep entities; a comment references markers by id only. There is no separate
  * "selections" list — a selection the user wants to keep becomes a marker.
  *
  * Unknown keys are dropped on read (a newer v1 writer may add optional fields); a higher
@@ -17,10 +17,10 @@ export const SCHEMA_VERSION = 1;
 export const MAX_ID_LENGTH = 64;
 export const MAX_NAME_LENGTH = 60;
 export const MAX_COMMENT_LENGTH = 10_000;
-/** Linked model files per comment (T7.4) and the longest file name kept. */
+/** Linked model files per comment and the longest file name kept. */
 export const MAX_LINKED_MODELS = 8;
 export const MAX_LINKED_MODEL_NAME = 255;
-/** Replies per comment (T7.5). */
+/** Replies per comment. */
 export const MAX_REPLIES = 500;
 /** Part items per comment, parameters per part, and the longest text in a part (part requests). */
 export const MAX_PART_ITEMS = 50;
@@ -49,7 +49,7 @@ export const modelInfoSchema = z.object({
   /** `sha256:<64 hex>` of the model file's bytes. Mismatch → revision transfer via `samples`. */
   contentHash: z.string().regex(/^sha256:[0-9a-f]{64}$/, 'contentHash must be sha256:<64 hex>'),
   /**
-   * `sha256:<64 hex>` of our mesh + entity maps (geometry `meshHash`, T8.1). Same mesh hash on a
+   * `sha256:<64 hex>` of our mesh + entity maps (geometry `meshHash`). Same mesh hash on a
    * changed file = same geometry: the annotations fit as they are. A malformed one is dropped.
    */
   meshHash: z
@@ -73,8 +73,8 @@ export type EntityKind = z.infer<typeof entityKindSchema>;
 const vec3 = z.tuple([z.number(), z.number(), z.number()]);
 
 /**
- * What a held entity looked like when saved (T6.2), so a later model revision can find it again
- * by geometry (T8.2): ids change between revisions, type / size / position mostly don't. Written by
+ * What a held entity looked like when saved, so a later model revision can find it again
+ * by geometry: ids change between revisions, type / size / position mostly don't. Written by
  * the app, never needed to load; a malformed one is dropped, not the file. Lengths in mm.
  */
 export const entityFingerprintSchema = z.object({
@@ -99,7 +99,7 @@ export const entityFingerprintSchema = z.object({
   /** Body: bounding-box size. */
   size: vec3.optional(),
   /**
-   * Face: bounding box of its mesh, `[min, max]` (T8.2): tells apart turns that fit a
+   * Face: bounding box of its mesh, `[min, max]`: tells apart turns that fit a
    * mark equally well (a stroke on a flat top), unlike the centre it ignores cut-outs inside.
    */
   bounds: z.tuple([vec3, vec3]).optional(),
@@ -141,7 +141,7 @@ export type PaintPieces = z.infer<typeof paintPiecesSchema>;
 /**
  * Runs of consecutive triangle numbers: `[first, count]` = triangles first … first + count − 1.
  * Our tessellation numbers triangles face by face, so a painted area is mostly a few long runs
- * (a whole painted face is one run) — keeps sidecars small (T5.1).
+ * (a whole painted face is one run) — keeps sidecars small.
  */
 export const triangleRunSchema = z.tuple([index, z.number().int().positive()]);
 export type TriangleRun = z.infer<typeof triangleRunSchema>;
@@ -156,19 +156,19 @@ export const facePaintSchema = z.object({
   faceId: index,
   /** Wholly painted triangles, as runs (ascending, not overlapping). */
   triangles: z.array(triangleRunSchema),
-  /** Triangles the brush cut into pieces (T3.6). */
+  /** Triangles the brush cut into pieces. */
   pieces: z.array(paintPiecesSchema).optional(),
   /**
-   * Points spread evenly over this face's paint (T8.2): where the paint goes on a new revision of
+   * Points spread evenly over this face's paint: where the paint goes on a new revision of
    * the model. Written by the app, never needed to load.
    */
   samples: pointsSchema.optional().catch(undefined),
   /**
-   * Points on this face just outside the paint (T8.2 fix): where the paint ends, so a moved brush
+   * Points on this face just outside the paint: where the paint ends, so a moved brush
    * stroke keeps its outline.
    */
   clear: pointsSchema.optional().catch(undefined),
-  /** What the painted CAD face looked like (T8.2), as for held entities. */
+  /** What the painted CAD face looked like, as for held entities. */
   fingerprint: entityFingerprintSchema.optional().catch(undefined),
 });
 export type FacePaint = z.infer<typeof facePaintSchema>;
@@ -176,20 +176,18 @@ export type FacePaint = z.infer<typeof facePaintSchema>;
 export const markerPaintSchema = z.object({
   faces: z.array(facePaintSchema),
   /**
-   * Painted triangles' centres (written before T8.2, which keeps points per face in
+   * Painted triangles' centres (older files; newer ones keep points per face in
    * `faces[].samples`). Still read: the revision transfer falls back to them for older files.
    */
   samples: pointsSchema.optional(),
 });
-export type MarkerPaint = z.infer<typeof markerPaintSchema>;
 
 /**
- * How a marker came over from the previous version of the model (T8.2), left out when it was found
+ * How a marker came over from the previous version of the model, left out when it was found
  * where it was. `changed` = moved or resized (the user confirms); `lost` = nothing matched;
  * `check` = not moved on purpose (a mirrored body). Cleared when the user says it looks right.
  */
 export const transferStatusSchema = z.enum(['changed', 'lost', 'check']);
-export type TransferStatusData = z.infer<typeof transferStatusSchema>;
 
 export const markerTransferSchema = z.object({
   status: transferStatusSchema,
@@ -197,7 +195,7 @@ export const markerTransferSchema = z.object({
   from: z.string().min(1).max(1000),
   /**
    * The parts of the marker that could not be placed, where they would be on this model (moved
-   * with their body; T8.3 can draw them): painted faces' points and fingerprints, held entities'
+   * with their body; drawn as ghosts): painted faces' points and fingerprints, held entities'
    * fingerprints (`body` = index into this file's `bodies`). Tried again on the next version.
    */
   ghost: z
@@ -237,7 +235,7 @@ export const commentAuthorSchema = z.enum(['human', 'ai']);
 export type CommentAuthor = z.infer<typeof commentAuthorSchema>;
 
 /**
- * A reply in a comment's thread (T7.5), by the user or the AI. `status` = the status the comment
+ * A reply in a comment's thread, by the user or the AI. `status` = the status the comment
  * was set to with this reply (the AI's "resolved: added a 2 mm fillet"; a user's reply on a
  * closed comment reopens it → "open").
  */
@@ -334,14 +332,14 @@ export const commentSchema = z.object({
   createdAt: isoTime,
   updatedAt: isoTime,
   /**
-   * Before T7.5: the AI's note on the last status change. Still read (shown as the thread's first
+   * Before threads: the AI's note on the last status change. Still read (shown as the thread's first
    * reply, see `commentThread`); never written any more.
    */
   note: z.string().max(MAX_COMMENT_LENGTH).optional(),
-  /** The thread under the comment, oldest first (T7.5). Left out when empty. */
+  /** The thread under the comment, oldest first. Left out when empty. */
   replies: z.array(commentReplySchema).max(MAX_REPLIES).optional(),
   /**
-   * Other model files this comment is about, by file name (T7.4: "this pocket must fit the
+   * Other model files this comment is about, by file name ("this pocket must fit the
    * lid"). Names, not paths: the files may move. Left out when empty.
    */
   linkedModels: z
@@ -349,7 +347,7 @@ export const commentSchema = z.object({
     .max(MAX_LINKED_MODELS)
     .optional(),
   /**
-   * The AI closed it (resolved / won't fix) and the user hasn't confirmed yet (T8.3): stays in the
+   * The AI closed it (resolved / won't fix) and the user hasn't confirmed yet: stays in the
    * list until they click Confirm or Reopen. Left out otherwise.
    */
   awaitingConfirm: z.literal(true).optional().catch(undefined),
@@ -362,7 +360,7 @@ export const commentSchema = z.object({
 export type CommentData = z.infer<typeof commentSchema>;
 
 /**
- * Where a row of the body list sits (T5.4): the top level, a STEP assembly (index into the model's
+ * Where a row of the body list sits: the top level, a STEP assembly (index into the model's
  * assemblies) or a user folder.
  */
 export const treePlaceSchema = z.union([
@@ -381,7 +379,7 @@ export type UserFolderData = z.infer<typeof userFolderSchema>;
 
 /**
  * The user's own folders in the body list and the bodies / STEP assemblies moved out of their STEP
- * place (T5.4). Only sorts the list: the model file is never changed. Rows not listed stay where
+ * place. Only sorts the list: the model file is never changed. Rows not listed stay where
  * the STEP puts them. Entries that don't fit the model (unknown folder, id out of range, a folder
  * inside itself) are dropped by the app, not refused here, so a bad entry never costs the paint.
  */
@@ -395,9 +393,9 @@ export type BodyTreeData = z.infer<typeof bodyTreeSchema>;
 export const MAX_BODY_NAME_LENGTH = 1000;
 
 /**
- * Every body of the model when saved (T6.2), by body index: name and size, so bodies (and what
+ * Every body of the model when saved, by body index: name and size, so bodies (and what
  * points at them: entities, `bodyTree`) can be matched by name, then size, after the STEP changes
- * (T8.0 / T8.2). Mesh numbers, mm.
+ *. Mesh numbers, mm.
  */
 export const bodyFingerprintSchema = z.object({
   name: z.string().max(MAX_BODY_NAME_LENGTH),
@@ -410,12 +408,12 @@ export const bodyFingerprintSchema = z.object({
 });
 export type BodyFingerprint = z.infer<typeof bodyFingerprintSchema>;
 
-/** Most links kept per list of a version chain (T8.6); older ones are dropped first. */
+/** Most links kept per list of a version chain; older ones are dropped first. */
 export const MAX_VERSION_LINKS = 100;
 export const MAX_VERSION_PATH = 4096;
 
 /**
- * One other version of the model in its version chain (T8.6): where the file was, its name and
+ * One other version of the model in its version chain: where the file was, its name and
  * the content hash of the version meant (a moved file is found again by it), and when the link
  * was made. `overwritten`: the file at `path` was replaced by a newer version (Reload with
  * changes), so these contents are gone from disk.
@@ -430,13 +428,13 @@ export const versionLinkSchema = z.object({
 export type VersionLink = z.infer<typeof versionLinkSchema>;
 
 /**
- * Version chain (T8.6, a tree since T13.4): made only by "Import new version", "Bring my notes
+ * Version chain (a tree: one earlier version per file): made only by "Import new version", "Bring my notes
  * over" and the AI's `load_model` with `revisionOf` (and a file overwritten in place), never by
  * names. `earlier[0]` is the one version this file was made from — **the truth** of the chain; the
  * rest of `earlier` is a cache of that version's own earlier ones, used only where their notes
  * can't be read (file moved, overwritten). `newer`: signposts to versions made from this one,
  * trusted only when that file's `earlier[0]` names this one (several = variants). `unlinked`: the
- * user removed this file from its chain (T13.4); the automatic version guesses leave it out until
+ * user removed this file from its chain; the automatic version guesses leave it out until
  * it is linked again.
  */
 export const versionChainSchema = z.object({
@@ -454,12 +452,12 @@ export const annotationsSchema = z
     tessellation: tessellationSchema.optional(),
     markers: z.array(markerSchema),
     comments: z.array(commentSchema),
-    /** Left out while the user has no folders and moved nothing (T5.4). */
+    /** Left out while the user has no folders and moved nothing. */
     /** A malformed one is dropped (folders lost), never the whole file (paint kept). */
     bodyTree: bodyTreeSchema.optional().catch(undefined),
-    /** Body fingerprints by body index (T6.2); for revision matching only, never needed to load. */
+    /** Body fingerprints by body index; for revision matching only, never needed to load. */
     bodies: z.array(bodyFingerprintSchema).optional().catch(undefined),
-    /** Other versions of this model (T8.6). A malformed chain is dropped, never the file. */
+    /** Other versions of this model. A malformed chain is dropped, never the file. */
     versions: versionChainSchema.optional().catch(undefined),
   })
   .superRefine((doc, ctx) => {
@@ -500,70 +498,82 @@ export const annotationsSchema = z
       });
     });
 
-    // One marker per whole triangle; a whole triangle is never also cut. Pieces of one cut
-    // triangle may belong to several markers (each marker stores its own tree). Runs are checked
-    // as intervals (never expanded: a hostile count can't blow up memory).
-    const runs: { first: number; end: number; marker: string; path: (string | number)[] }[] = [];
-    const cut: { t: number; path: (string | number)[] }[] = [];
-    doc.markers.forEach((m, mi) => {
-      checkUnique(
-        m.entities,
-        (e) => `${e.kind}:${String(e.id)}`,
-        ['markers', mi, 'entities'],
-        'entity',
-        ctx,
-      );
-      checkUnique(
-        m.paint.faces,
-        (f) => String(f.faceId),
-        ['markers', mi, 'paint', 'faces'],
-        'face',
-        ctx,
-      );
-      const ownCut = new Set<number>();
-      m.paint.faces.forEach((f, fi) => {
-        const at = ['markers', mi, 'paint', 'faces', fi];
-        for (const [first, n] of f.triangles) {
-          runs.push({ first, end: first + n, marker: m.id, path: [...at, 'triangles'] });
-        }
-        for (const p of f.pieces ?? []) {
-          if (ownCut.has(p.triangle)) {
-            ctx.addIssue({
-              code: 'custom',
-              path: [...at, 'pieces'],
-              message: `triangle ${String(p.triangle)} is listed twice in this marker`,
-            });
-          }
-          ownCut.add(p.triangle);
-          cut.push({ t: p.triangle, path: [...at, 'pieces'] });
-        }
-      });
-    });
-    runs.sort((a, b) => a.first - b.first);
-    let reach: (typeof runs)[number] | undefined;
-    for (const r of runs) {
-      if (reach && r.first < reach.end) {
-        const by = reach.marker === r.marker ? 'this marker' : `marker "${reach.marker}"`;
-        ctx.addIssue({
-          code: 'custom',
-          path: r.path,
-          message: `triangle ${String(r.first)} is already painted by ${by}`,
-        });
-      }
-      if (!reach || r.end > reach.end) reach = r;
-    }
-    for (const c of cut) {
-      const by = runCovering(runs, c.t);
-      if (by !== undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['markers'],
-          message: `triangle ${String(c.t)} is painted whole by marker "${by}" and cut into pieces`,
-        });
-      }
-    }
+    checkMarkerPaint(doc.markers, ['markers'], ctx);
   });
 export type Annotations = z.infer<typeof annotationsSchema>;
+
+/**
+ * Paint and entity checks shared by v1 sidecars and v2 marks files: unique entities and faces per
+ * marker, one marker per whole triangle, a whole triangle never also cut.
+ */
+export function checkMarkerPaint(
+  markers: readonly Pick<MarkerData, 'id' | 'entities' | 'paint'>[],
+  base: (string | number)[],
+  ctx: z.RefinementCtx,
+): void {
+  // One marker per whole triangle; a whole triangle is never also cut. Pieces of one cut
+  // triangle may belong to several markers (each marker stores its own tree). Runs are checked
+  // as intervals (never expanded: a hostile count can't blow up memory).
+  const runs: { first: number; end: number; marker: string; path: (string | number)[] }[] = [];
+  const cut: { t: number; path: (string | number)[] }[] = [];
+  markers.forEach((m, mi) => {
+    checkUnique(
+      m.entities,
+      (e) => `${e.kind}:${String(e.id)}`,
+      [...base, mi, 'entities'],
+      'entity',
+      ctx,
+    );
+    checkUnique(
+      m.paint.faces,
+      (f) => String(f.faceId),
+      [...base, mi, 'paint', 'faces'],
+      'face',
+      ctx,
+    );
+    const ownCut = new Set<number>();
+    m.paint.faces.forEach((f, fi) => {
+      const at = [...base, mi, 'paint', 'faces', fi];
+      for (const [first, n] of f.triangles) {
+        runs.push({ first, end: first + n, marker: m.id, path: [...at, 'triangles'] });
+      }
+      for (const p of f.pieces ?? []) {
+        if (ownCut.has(p.triangle)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [...at, 'pieces'],
+            message: `triangle ${String(p.triangle)} is listed twice in this marker`,
+          });
+        }
+        ownCut.add(p.triangle);
+        cut.push({ t: p.triangle, path: [...at, 'pieces'] });
+      }
+    });
+  });
+  runs.sort((a, b) => a.first - b.first);
+  let reach: (typeof runs)[number] | undefined;
+  for (const r of runs) {
+    if (reach && r.first < reach.end) {
+      const by = reach.marker === r.marker ? 'this marker' : `marker "${reach.marker}"`;
+      ctx.addIssue({
+        code: 'custom',
+        path: r.path,
+        message: `triangle ${String(r.first)} is already painted by ${by}`,
+      });
+    }
+    if (!reach || r.end > reach.end) reach = r;
+  }
+  for (const c of cut) {
+    const by = runCovering(runs, c.t);
+    if (by !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: base,
+        message: `triangle ${String(c.t)} is painted whole by marker "${by}" and cut into pieces`,
+      });
+    }
+  }
+}
 
 /** Marker of a run (sorted by `first`) holding triangle `t`, if any. */
 function runCovering(

@@ -1,11 +1,13 @@
 /**
- * App bridge server (T7.1): localhost WebSocket the MCP server connects to. Electron-free, so it
+ * App bridge server: localhost WebSocket the MCP server connects to. Electron-free, so it
  * is unit-tested with a real socket (`bridge.test.ts`). Protocol: `@third-wheel/core` bridge.ts.
  */
+import { execFileSync } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { userInfo } from 'node:os';
+import { dirname, win32 } from 'node:path';
 import {
   BRIDGE_MAX_REQUEST_BYTES,
   BRIDGE_PROTOCOL,
@@ -16,8 +18,14 @@ import {
 } from '@third-wheel/core';
 import { WebSocketServer, type WebSocket } from 'ws';
 
+/** About the connection a call came in on. */
+export interface BridgeCallContext {
+  /** Aborted when the caller's connection closes (the MCP tool call was cancelled or ended). */
+  readonly signal: AbortSignal;
+}
+
 /** Handles one method; the result is sent as `{ result }`. Throw `BridgeMethodError` for a coded error. */
-export type BridgeHandler = (params: unknown) => unknown;
+export type BridgeHandler = (params: unknown, context: BridgeCallContext) => unknown;
 
 export class BridgeMethodError extends Error {
   constructor(
@@ -75,9 +83,14 @@ export async function startBridge(options: BridgeOptions): Promise<Bridge> {
   });
 
   wss.on('connection', (socket) => {
+    const closed = new AbortController();
+    socket.once('close', () => {
+      closed.abort(new Error('connection closed'));
+    });
+    const context: BridgeCallContext = { signal: closed.signal };
     socket.on('message', (data, isBinary) => {
       const text = isBinary ? '' : (data as Buffer).toString('utf8');
-      void answer(text, options.handlers).then((response) => {
+      void answer(text, options.handlers, context).then((response) => {
         send(socket, response);
       });
     });
@@ -142,6 +155,7 @@ function checkClient(
 async function answer(
   text: string,
   handlers: Readonly<Record<string, BridgeHandler>>,
+  context: BridgeCallContext,
 ): Promise<BridgeResponse> {
   const parsed = parseBridgeRequest(text);
   if (!parsed.ok) return parsed.response;
@@ -150,7 +164,7 @@ async function answer(
   if (!handler)
     return { id, error: { code: 'unknown_method', message: `Unknown method "${method}"` } };
   try {
-    return { id, result: (await handler(params)) ?? null };
+    return { id, result: (await handler(params, context)) ?? null };
   } catch (err) {
     if (err instanceof BridgeMethodError)
       return { id, error: { code: err.code, message: err.message } };
@@ -181,11 +195,50 @@ function writeBridgeFile(path: string, file: BridgeFile): void {
   const tmp = `${path}.${String(process.pid)}.tmp`;
   writeFileSync(tmp, JSON.stringify(file, null, 2), { encoding: 'utf8', mode: 0o600 });
   try {
+    // Before the rename: the token is never readable by others under its real name. A renamed
+    // file keeps its own access list on Windows.
+    restrictToUser(tmp);
     renameWithRetry(tmp, path);
   } catch (err) {
     rmSync(tmp, { force: true });
     throw err;
   }
+}
+
+/** Runs a program and waits (`execFileSync`'s shape, so tests can stand in). */
+export type RunProgram = (file: string, args: readonly string[]) => unknown;
+
+/**
+ * Windows ignores the `0o600` mode: there, drop the access the file inherits from its folder and
+ * give only this user full access (`icacls`). Fails soft with a warning — the file sits in the
+ * user's own profile folder, which other users can't read by default. Elsewhere: nothing to do.
+ * @returns whether the access list was set (false on other systems and on failure).
+ */
+export function restrictToUser(
+  path: string,
+  platform: string = process.platform,
+  run: RunProgram = (file, args) =>
+    execFileSync(file, args, { stdio: 'ignore', timeout: 10_000, windowsHide: true }),
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  if (platform !== 'win32') return false;
+  const user = windowsUser(env);
+  try {
+    // By full path: a bare name could find an icacls.exe in the current folder first.
+    const icacls = win32.join(env['SystemRoot'] ?? 'C:\\Windows', 'System32', 'icacls.exe');
+    run(icacls, [path, '/inheritance:r', '/grant:r', `${user}:F`]);
+    return true;
+  } catch (err) {
+    console.warn(`Could not make ${path} readable only by ${user}:`, err);
+    return false;
+  }
+}
+
+/** `DOMAIN\user` for the signed-in Windows user (just the name when the domain is unknown). */
+function windowsUser(env: Readonly<Record<string, string | undefined>>): string {
+  const name = env['USERNAME'] ?? userInfo().username;
+  const domain = env['USERDOMAIN'];
+  return domain ? `${domain}\\${name}` : name;
 }
 
 /** Codes Windows gives while antivirus / the indexer briefly holds a file. */

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "fileName": "bracket_v2.step",
+    "format": "step",
+    "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "tessellation": {
+    "linearDeflection": 0.1,
+    "angularDeflection": 0.5
+  },
+  "markers": [
+    {
+      "id": "m1",
+      "name": "Thin wall",
+      "color": "#e5484d",
+      "visible": true,
+      "entities": [
+        {
+          "kind": "face",
+          "id": 9,
+          "seq": 1
+        }
+      ],
+      "paint": {
+        "faces": [
+          {
+            "faceId": 9,
+            "triangles": [[200, 4]],
+            "samples": [10, 2, 10]
+          }
+        ]
+      },
+      "transfer": {
+        "status": "changed",
+        "from": "bracket.step"
+      }
+    }
+  ],
+  "comments": [
+    {
+      "id": "c1",
+      "text": "This wall is too thin.",
+      "markerIds": ["m1"],
+      "status": "resolved",
+      "author": "human",
+      "createdAt": "2026-11-08T09:05:00.000Z",
+      "updatedAt": "2026-11-08T10:05:00.000Z",
+      "awaitingConfirm": true,
+      "replies": [
+        {
+          "id": "r1",
+          "text": "Made it 2 mm thick.",
+          "author": "ai",
+          "createdAt": "2026-11-08T10:05:00.000Z",
+          "updatedAt": "2026-11-08T10:05:00.000Z",
+          "status": "resolved"
+        }
+      ]
+    }
+  ],
+  "bodies": [
+    {
+      "name": "Bracket",
+      "size": [60, 40, 8],
+      "centre": [0, 0, 4],
+      "area": 7420.5
+    },
+    {
+      "name": "Pin",
+      "size": [6, 6, 20],
+      "centre": [20, 0, 10],
+      "area": 433.5
+    }
+  ],
+  "versions": {
+    "earlier": [
+      {
+        "path": "/Users/someone/Desktop/old place/bracket.step",
+        "name": "bracket.step",
+        "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "date": "2026-11-08T10:00:00.000Z"
+      }
+    ]
+  }
+}

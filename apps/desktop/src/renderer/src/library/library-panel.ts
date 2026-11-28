@@ -525,7 +525,7 @@ export function initLibraryPanel({
     });
     const create = el('button', 'btn library-create', 'Create request');
     create.type = 'button';
-    create.title = 'Saves it as a comment; press “Send to AI” to hand it over';
+    create.title = 'Saves it as a comment; press “Send review” to hand it over';
     create.addEventListener('click', () => {
       const lib = loaded?.catalogue;
       const live = new Set(markers().map((m) => m.id));
@@ -542,7 +542,7 @@ export function initLibraryPanel({
       if (num === undefined) {
         trayMessage = 'The request could not be saved.';
       } else {
-        trayMessage = `Saved as comment #${String(num)}. Press “Send to AI” when you are ready.`;
+        trayMessage = `Saved as comment #${String(num)}. Press “Send review” when you are ready.`;
         draft = [];
         instruction = '';
       }

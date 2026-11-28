@@ -7,6 +7,7 @@
  */
 import type { OcctKernel, ShapeHandle, XCAFDocument } from 'occt-wasm';
 import { readEdgeGeometry, readFaceGeometry } from './analytic.js';
+import { edgeChains, readEdgeEnds } from './edge-chain.js';
 import {
   DEFAULT_TESSELLATION,
   EDGE_GEOMETRY_STRIDE,
@@ -30,7 +31,7 @@ export interface ImportOptions {
   /** Progress inside a stage (0–1); only the mesh stage reports it (one step per body). */
   readonly onStageProgress?: (stage: ImportStage, fraction: number) => void;
   /**
-   * Keep the B-rep shapes for exact measurements (T2.8) instead of freeing them: called once on
+   * Keep the B-rep shapes for exact measurements instead of freeing them: called once on
    * success. The caller must `release()` them (before the next import, at the latest).
    */
   readonly keep?: (kept: KeptShapes) => void;
@@ -220,7 +221,7 @@ export function importStep(
 
     // --- Mesh: one body at a time ---
     // Meshing the whole assembly in one kernel call builds one huge result inside the 4 GB WASM
-    // heap and runs out of memory on large assemblies (T1.7: a 3k-body printer assembly hit 4 GB within
+    // heap and runs out of memory on large assemblies (a 3k-body printer assembly hit 4 GB within
     // seconds); per body, the heap does not grow at all.
     stage('mesh');
     const looseFaceIds: number[] = [];
@@ -344,6 +345,17 @@ export function importStep(
       const p = kernel.vertexPosition(v);
       vertexPositions.set([p.x, p.y, p.z], i * 3);
     });
+    const vertexIdOf = (sub: ShapeHandle): number => {
+      for (const id of vertexIndex.candidates(kernel.hashCode(sub, HASH_BOUND))) {
+        const candidate = vertices[id];
+        if (candidate !== undefined && kernel.isSame(candidate, sub)) return id;
+      }
+      return -1;
+    };
+    const edgeChain = edgeChains(
+      readEdgeEnds(kernel, edges, edgeTypes, vertexPositions, vertexIdOf),
+      edgeBody,
+    );
     // Degenerate edges have nothing to draw: no curve (sphere poles, cone apexes → type 'other')
     // or zero length (seen: a 3e-13 mm circle in a real assembly).
     const unexplainedEdgesWithoutPolyline: number[] = [];
@@ -389,6 +401,7 @@ export function importStep(
       edgeBody,
       edgeTypes,
       edgeGeometry,
+      edgeChain,
       vertexPositions,
       vertexBody,
       bodyCount,

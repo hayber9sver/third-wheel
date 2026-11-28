@@ -1,6 +1,6 @@
 /**
  * Exact geometry of analytic faces and edges (radius, axis, normal…), read from the kernel once
- * at import (T2.5). occt-wasm has no axis / centre getters, so they are derived from surface and
+ * at import. occt-wasm has no axis / centre getters, so they are derived from surface and
  * curve evaluation, using OCCT's standard parametrisations:
  *   cylinder  P(u,v) = O + R(cos u·X + sin u·Y) + v·Z           → opposite points (u, u+π) share v
  *   cone      P(u,v) = O + (R + v sin α)(cos u·X + sin u·Y) + v cos α·Z

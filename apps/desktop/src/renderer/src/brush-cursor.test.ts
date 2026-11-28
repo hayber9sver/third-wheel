@@ -54,7 +54,7 @@ function twoPlates(): StepModel {
 
 const down = (x: number, y: number): Ray => new Ray(new Vector3(x, y, 5), new Vector3(0, 0, -1));
 
-describe('SurfaceRaycaster (T3.1)', () => {
+describe('SurfaceRaycaster', () => {
   it('returns the nearest visible triangle with the import triangle id', () => {
     const r = new SurfaceRaycaster(twoPlates());
     const hit = r.hit(down(0.75, 0.25), []);
@@ -79,7 +79,7 @@ describe('SurfaceRaycaster (T3.1)', () => {
   });
 });
 
-describe('SurfaceRaycaster.trianglesInSphere (T3.3)', () => {
+describe('SurfaceRaycaster.trianglesInSphere', () => {
   it('returns every triangle the ball touches, with import ids, on visible bodies', () => {
     const r = new SurfaceRaycaster(twoPlates());
     // Ball at a corner of the front plate, reaching only its first triangle's corner region.
@@ -92,7 +92,7 @@ describe('SurfaceRaycaster.trianglesInSphere (T3.3)', () => {
   });
 });
 
-describe('smoothNormal (T3.3)', () => {
+describe('smoothNormal', () => {
   it('interpolates vertex normals across the triangle', () => {
     const model = {
       positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),

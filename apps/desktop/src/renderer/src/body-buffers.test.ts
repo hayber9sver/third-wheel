@@ -11,6 +11,7 @@ const model = {
   edgePoints: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 5, 5, 5, 6, 5, 5]),
   edgeRanges: new Uint32Array([0, 3, 3, 2, 0, 0]),
   edgeBody: new Uint32Array([1, 0, 0]),
+  edgeChain: new Uint32Array([0, 1, 2]),
 };
 
 describe('buildBodyBuffers', () => {

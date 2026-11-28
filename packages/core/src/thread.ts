@@ -1,5 +1,5 @@
 /**
- * Comment threads (T7.5). Before T7.5 the AI's answer was a single `note` on the comment; it is
+ * Comment threads. Earlier the AI's answer was a single `note` on the comment; it is
  * now the thread's first reply. Pure, shared by the app (sidecar load) and the review payload.
  */
 import type { CommentReplyData, CommentStatus } from './schema.js';
@@ -23,7 +23,7 @@ export function nextReplyId(replies: readonly { readonly id: string }[]): string
 }
 
 /**
- * The comment's replies, oldest first, with a pre-T7.5 `note` as an AI reply in front (it was set
+ * The comment's replies, oldest first, with an old single `note` as an AI reply in front (it was set
  * by `set_comment_status`, so it carries the status unless that is "open").
  */
 export function commentThread(c: ThreadSource): CommentReplyData[] {

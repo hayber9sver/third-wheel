@@ -1,0 +1,51 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "copilot",
+  "label": "Copilot CLI",
+  "tab": "Copilot CLI",
+  "order": 35,
+  "tested": null,
+  "engine": "command",
+  "command": {
+    "program": {
+      "name": "copilot",
+      "windows": ["copilot.exe", "copilot.cmd"],
+      "folders": ["~/.local/bin"]
+    },
+    "add": [
+      "mcp",
+      "add",
+      "{name}",
+      "--timeout",
+      "1800000",
+      "{env}",
+      "--",
+      "{command}",
+      "{serverPath}"
+    ],
+    "env": ["--env", "{key}={value}"],
+    "remove": ["mcp", "remove", "{name}"],
+    "scopes": { "user": { "args": [], "where": "user" } },
+    "entries": [
+      {
+        "where": "user",
+        "file": "~/.copilot/mcp-config.json",
+        "fileEnv": "COPILOT_HOME",
+        "key": ["mcpServers", "{name}"]
+      }
+    ],
+    "check": true,
+    "timeoutSec": 30
+  },
+  "chat": { "start": "copilot" },
+  "manual": { "command": true },
+  "texts": {
+    "button": "Add to Copilot CLI",
+    "buttonHint": "For all your folders.",
+    "notFoundHint": "Copilot CLI wasn’t found in the usual places.",
+    "title": "Or run this once in a terminal",
+    "notFoundTitle": "Run this once in a terminal",
+    "where": "Needs a GitHub Copilot plan. Keep --timeout (30 min, in ms): waiting for your review or chat message takes up to 25 min. A folder’s own .mcp.json comes first. Then start Copilot CLI and type /mcp: third-wheel should be listed.",
+    "after": "Restart Copilot CLI: /mcp lists third-wheel."
+  }
+}

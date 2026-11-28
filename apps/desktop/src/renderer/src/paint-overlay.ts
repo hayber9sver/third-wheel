@@ -1,10 +1,10 @@
 /**
- * Paint drawn over the model (T3.3): one mesh sharing the model's vertex buffers, whose index
+ * Paint drawn over the model: one mesh sharing the model's vertex buffers, whose index
  * holds the whole-painted triangles grouped by marker (one material per marker), and one small
- * mesh of its own for the pieces of cut triangles (T3.6; positions and smooth normals
+ * mesh of its own for the pieces of cut triangles (positions and smooth normals
  * interpolated from the triangle's vertices). Rebuilt at most once per frame when the paint,
  * marker colours/visibility or body visibility changed; a paint change reads only the blocks of
- * triangles it touched (T12.2) and joins the cached rest.
+ * triangles it touched and joins the cached rest.
  */
 import {
   BufferAttribute,
@@ -24,7 +24,7 @@ interface PieceChunk {
   readonly bySlot: ReadonlyMap<number, { readonly pos: Float32Array; readonly nor: Float32Array }>;
 }
 
-/** What one block of `PAINT_BLOCK` triangles draws, by marker slot (T12.2). */
+/** What one block of `PAINT_BLOCK` triangles draws, by marker slot. */
 interface Block {
   /** The layer's stamp this was built from (`PaintLayer.blockEdit`). */
   readonly edit: number;
@@ -44,9 +44,11 @@ export interface MarkerStyle {
   /** 0xrrggbb */
   readonly color: number;
   readonly visible: boolean;
+  /** Resolved marker shown by "Show resolved": drawn faded unless its comment is highlighted. */
+  readonly fade?: boolean;
 }
 
-/** Marker paint strength while comparing versions (T12.5): the red / green diff shows through. */
+/** Marker paint strength while comparing versions: the red / green diff shows through. */
 export const FADED_PAINT_OPACITY = 0.25;
 
 export class PaintOverlay {
@@ -107,7 +109,7 @@ export class PaintOverlay {
 
   /**
    * Rebuild when anything it shows changed since the last call; only blocks whose paint changed
-   * are read again (T12.2). Returns the build time in ms.
+   * are read again. Returns the build time in ms.
    */
   update(layer: PaintLayer, styles: readonly MarkerStyle[], visible: readonly boolean[]): number {
     const visibleKey = visible.join(',');
@@ -179,7 +181,7 @@ export class PaintOverlay {
   /**
    * Index array with room for `count` entries. Grows (doubling) but is otherwise reused: a new
    * index attribute is a new GPU buffer, and three.js frees a replaced one only with the whole
-   * geometry — which shares the model's position / normal buffers (backlog, T6.3 review). The
+   * geometry — which shares the model's position / normal buffers. The
    * draw groups cover only the filled part.
    */
   private indexFor(count: number): Uint32Array {
@@ -339,7 +341,7 @@ export class PaintOverlay {
 
   /**
    * Compiles the paint shader before the first stroke (cold, the first painted frame took
-   * ~16 ms more, T12.2). Programs depend only on the material settings and attributes, so a
+   * ~16 ms more). Programs depend only on the material settings and attributes, so a
    * kept warm-up material (same settings as the marker ones) on a one-triangle mesh is enough.
    * `scene`: where the overlay is drawn (its lights are part of the shader).
    */
@@ -387,7 +389,7 @@ export class PaintOverlay {
     return m;
   }
 
-  /** Paint at {@link FADED_PAINT_OPACITY} (Compare, T12.5) or solid. */
+  /** Paint at {@link FADED_PAINT_OPACITY} (Compare) or solid. */
   private faded = false;
   setFaded(on: boolean): void {
     if (this.faded === on) return;

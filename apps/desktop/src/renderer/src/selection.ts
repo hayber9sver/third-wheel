@@ -1,5 +1,5 @@
 /**
- * The current selection (T2.2), pure. Items are B-rep entities (vertex/edge/face, ids = OCCT
+ * The current selection, pure. Items are B-rep entities (vertex/edge/face, ids = OCCT
  * traversal index like everywhere else) or whole bodies. Insertion order is kept, so later tasks
  * (comments, MCP) can list them in the order the user picked them.
  */
@@ -33,7 +33,7 @@ export class Selection {
   }
 
   /**
-   * A click on an item in the viewport (T2.6: multi-select by default): adds it, or removes it
+   * A click on an item in the viewport (multi-select by default): adds it, or removes it
    * when it is already selected. Modifier keys make no difference.
    */
   toggle(item: SelectionItem): void {

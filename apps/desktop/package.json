@@ -1,6 +1,6 @@
 {
   "name": "@third-wheel/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mark up STEP models and talk about them with AI agents",
   "author": "XiLaoTr",
   "license": "Apache-2.0",
@@ -11,7 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "electron-builder"
+    "dist": "node -e \"require('node:fs').rmSync('release', { recursive: true, force: true })\" && electron-builder"
   },
   "dependencies": {
     "@third-wheel/core": "workspace:*",

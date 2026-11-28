@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "fileName": "bracket.step",
+    "format": "step",
+    "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "tessellation": {
+    "linearDeflection": 0.1,
+    "angularDeflection": 0.5
+  },
+  "markers": [
+    {
+      "id": "m1",
+      "name": "Thin wall",
+      "color": "#e5484d",
+      "visible": true,
+      "entities": [
+        {
+          "kind": "face",
+          "id": 7,
+          "seq": 1
+        }
+      ],
+      "paint": {
+        "faces": [
+          {
+            "faceId": 7,
+            "triangles": [[120, 3]],
+            "samples": [10, 2, 8, 11, 2, 8]
+          }
+        ]
+      }
+    }
+  ],
+  "comments": [
+    {
+      "id": "c1",
+      "text": "This wall is too thin.",
+      "markerIds": ["m1"],
+      "status": "open",
+      "author": "human",
+      "createdAt": "2026-11-08T09:05:00.000Z",
+      "updatedAt": "2026-11-08T09:05:00.000Z"
+    },
+    {
+      "id": "c2",
+      "text": "Remove this hole.",
+      "markerIds": [],
+      "status": "open",
+      "author": "human",
+      "createdAt": "2026-11-08T09:06:00.000Z",
+      "updatedAt": "2026-11-08T09:06:00.000Z"
+    }
+  ],
+  "bodies": [
+    {
+      "name": "Bracket",
+      "size": [60, 40, 8],
+      "centre": [0, 0, 4],
+      "area": 7420.5
+    },
+    {
+      "name": "Pin",
+      "size": [6, 6, 20],
+      "centre": [20, 0, 10],
+      "area": 433.5
+    }
+  ],
+  "bodyTree": {
+    "folders": [
+      {
+        "id": "n1",
+        "name": "Hardware",
+        "parent": "top"
+      }
+    ],
+    "bodies": [
+      {
+        "body": 1,
+        "parent": {
+          "folder": "n1"
+        }
+      }
+    ],
+    "assemblies": []
+  },
+  "versions": {
+    "newer": [
+      {
+        "path": "/Users/someone/Desktop/old place/bracket_v2.step",
+        "name": "bracket_v2.step",
+        "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "date": "2026-11-08T10:00:00.000Z"
+      }
+    ]
+  }
+}

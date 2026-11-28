@@ -1,4 +1,4 @@
-// T13.1: the shipped third-party notices must list every runtime dependency, with its licence text,
+// The shipped third-party notices must list every runtime dependency, with its licence text,
 // and must match what `scripts/third-party-notices.js` builds from node_modules today (so adding or
 // updating a package without regenerating the file fails here).
 import { readFileSync } from 'node:fs';
@@ -8,8 +8,16 @@ import { describe, expect, it } from 'vitest';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
+interface ShippedPackage {
+  readonly name: string;
+  readonly version: string;
+  readonly license: unknown;
+}
+
 interface NoticesScript {
   readonly buildNotices: (root?: string) => string;
+  readonly collectPackages: (root?: string) => ShippedPackage[];
+  readonly licenceProblems: (packages: readonly ShippedPackage[]) => string[];
   readonly NOTICES_FILE: string;
 }
 
@@ -60,6 +68,37 @@ describe('third-party notices', () => {
     expect(text).toContain('GNU LESSER GENERAL PUBLIC LICENSE');
     expect(text).toContain('END OF TERMS AND CONDITIONS');
     expect(text).not.toContain('No licence file in the package');
+  });
+
+  it('every shipped licence is on the allow-list (no GPL / AGPL / unknown)', async () => {
+    const { collectPackages, licenceProblems } = await loadScript();
+    expect(licenceProblems(collectPackages(repoRoot))).toEqual([]);
+  });
+
+  it('refuses GPL, AGPL, unknown licences and LGPL outside occt-wasm', async () => {
+    const { licenceProblems } = await loadScript();
+    const pkg = (name: string, license: unknown): ShippedPackage => ({
+      name,
+      version: '1.0.0',
+      license,
+    });
+    const fine = [
+      pkg('a', 'MIT'),
+      pkg('b', '(MIT OR GPL-3.0-only)'),
+      pkg('c', 'Apache-2.0 AND BSD-3-Clause'),
+      pkg('d', '0BSD'),
+      pkg('occt-wasm', 'MIT OR Apache-2.0'),
+    ];
+    expect(licenceProblems(fine)).toEqual([]);
+    const bad = [
+      pkg('gpl', 'GPL-3.0-only'),
+      pkg('agpl', 'AGPL-3.0-or-later'),
+      pkg('mixed', 'MIT AND GPL-2.0-only'),
+      pkg('lgpl', 'LGPL-2.1-only'),
+      pkg('none', undefined),
+      pkg('custom', 'SEE LICENSE IN LICENSE.txt'),
+    ];
+    expect(licenceProblems(bad).map((line) => line.split(' ')[0])).toEqual(bad.map((p) => p.name));
   });
 
   it('credits the libraries the parts catalogue was generated with, at the pinned versions', async () => {

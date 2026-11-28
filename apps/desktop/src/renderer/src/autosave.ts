@@ -1,5 +1,5 @@
 /**
- * Auto-save of the annotation sidecar (T5.1): a change marks the model dirty and a write follows
+ * Auto-save of the annotation sidecar: a change marks the model dirty and a write follows
  * `delayMs` after the last change; `flushSync` writes at once (opening another model, closing the
  * window). Nothing is written until something changed, so viewing a model leaves no file.
  */

@@ -1,5 +1,5 @@
 /**
- * Extra GPU data for ID picking (T2.1), pure. The pick pass reuses the shown model's position and
+ * Extra GPU data for ID picking, pure. The pick pass reuses the shown model's position and
  * index buffers and adds one id per vertex: faceId per mesh vertex, B-rep vertex points grouped by
  * body (so hidden bodies are skipped like in body-buffers.ts). Edge ids come from body-buffers.
  */

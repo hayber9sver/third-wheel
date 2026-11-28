@@ -1,7 +1,7 @@
 /**
- * Brush tools' cursor (T3.1): where the pointer meets the visible model surface (BVH raycast,
+ * Brush tools' cursor: where the pointer meets the visible model surface (BVH raycast,
  * `SurfaceRaycaster`) and a circle lying on the surface there, sized to the brush radius
- * (`BrushCursor`). T3.3 paints with the same raycaster (`trianglesInSphere`).
+ * (`BrushCursor`). Painting uses the same raycaster (`trianglesInSphere`).
  */
 import type { StepModel } from '@third-wheel/geometry';
 import {
@@ -49,7 +49,7 @@ export class SurfaceRaycaster {
     return performance.now() - t0;
   }
 
-  /** Whether (x, y, z) lies within `tol` mm of the surface, any body (T8.3 compare). */
+  /** Whether (x, y, z) lies within `tol` mm of the surface, any body (version compare). */
   near(x: number, y: number, z: number, tol: number): boolean {
     this.prepare();
     const hit = { point: new Vector3(), distance: 0, faceIndex: 0 };
@@ -95,13 +95,13 @@ export class SurfaceRaycaster {
     };
   }
 
-  /** BVH built (`prepare` ran): cheap queries only, no build stall (pins, T4.3). */
+  /** BVH built (`prepare` ran): cheap queries only, no build stall (pins). */
   get ready(): boolean {
     return this.bvh !== undefined;
   }
 
   /**
-   * Something visible on the ray closer than `maxDistance` (pin occlusion, T4.3). False while the
+   * Something visible on the ray closer than `maxDistance` (pin occlusion). False while the
    * BVH isn't built yet (it is built in idle time after a load).
    */
   blocked(ray: Ray, maxDistance: number, visible: readonly boolean[]): boolean {
@@ -116,7 +116,7 @@ export class SurfaceRaycaster {
   }
 
   /**
-   * Every body the ray meets beyond `near` (all bodies, hidden ones too; region pictures, T6.5).
+   * Every body the ray meets beyond `near` (all bodies, hidden ones too; region pictures).
    * Builds the BVH if needed.
    */
   bodiesOnRay(ray: Ray, near = 0): number[] {
@@ -129,7 +129,7 @@ export class SurfaceRaycaster {
 
   /**
    * Import triangle ids touching the ball of `radius` around `center` (any part of the triangle
-   * inside), on bodies whose `visible` entry isn't false — the sphere brush (T3.3).
+   * inside), on bodies whose `visible` entry isn't false — the sphere brush.
    */
   trianglesInSphere(center: Vec3, radius: number, visible: readonly boolean[]): number[] {
     this.prepare();
@@ -249,7 +249,7 @@ const Z_AXIS = new Vector3(0, 0, 1);
 /** Ring line width on screen, CSS px. */
 export const RING_WIDTH_PX = 2;
 const RING_SEGMENTS = 64;
-/** Brush circle colour with no active marker (the active marker's colour otherwise, T3.2). */
+/** Brush circle colour with no active marker (the active marker's colour otherwise). */
 export const NO_MARKER_COLOR = 0x8d939d;
 export const ERASE_COLOR = 0xe5484d;
 

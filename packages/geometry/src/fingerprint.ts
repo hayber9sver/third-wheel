@@ -1,6 +1,6 @@
 /**
- * Fingerprints saved in the sidecar (T6.2): what each body and each held entity looked like, so a
- * new revision of the model can match them by geometry (T8.2) after the ids changed. Pure: works on
+ * Fingerprints saved in the sidecar: what each body and each held entity looked like, so a
+ * new revision of the model can match them by geometry after the ids changed. Pure: works on
  * a {@link StepModel} only. Rounded to 0.1 µm / 1e-4 (keeps files short, far below any tolerance).
  */
 import {

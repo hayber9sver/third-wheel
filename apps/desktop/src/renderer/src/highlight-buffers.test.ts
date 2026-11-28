@@ -100,7 +100,7 @@ describe('highlightSphere', () => {
     expect(s?.radius).toBeCloseTo(Math.hypot(5, 0.5));
   });
 
-  it('can include extra triangles (painted triangles, T4.2)', () => {
+  it('can include extra triangles (painted triangles)', () => {
     const b = highlightBuffers([{ kind: 'vertex', id: 1 }], model, tris);
     const extra = triangleVertexIndices([0], model.indices);
     expect(extra.length).toBe(3);

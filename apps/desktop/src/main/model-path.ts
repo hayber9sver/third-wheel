@@ -4,7 +4,7 @@ import { realpath } from 'node:fs/promises';
 const UNC = /^[\\/]{2}/;
 
 /**
- * One spelling per model file, so the same model never counts twice (Send to AI, version lists):
+ * One spelling per model file, so the same model never counts twice (Send review, version lists):
  * symlinks resolved (macOS `/var` → `/private/var`) and, on Windows, the on-disk letter case
  * (`c:\parts\A.STEP` → `C:\Parts\a.step`). A mapped network drive keeps its drive letter (realpath
  * would turn it into a `\\host\share` path). Falls back to `path` when it can't be resolved.

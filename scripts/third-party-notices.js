@@ -1,8 +1,9 @@
-// Third-party notices for the app (T13.1): every package Third Wheel ships at run time, with its
+// Third-party notices for the app: every package Third Wheel ships at run time, with its
 // licence text copied from the package itself.
 //
 //   node scripts/third-party-notices.js          writes apps/desktop/resources/THIRD_PARTY_NOTICES.txt
-//   node scripts/third-party-notices.js --check  exits 1 when that file is out of date
+//   node scripts/third-party-notices.js --check  exits 1 when that file is out of date, or when a
+//                                                shipped package's licence is not on the allow-list
 //
 // "Ships at run time" = the production dependencies (`dependencies`, installed
 // `optionalDependencies`) of the workspace packages, followed through node_modules, plus Electron
@@ -171,10 +172,63 @@ export function collectPackages(root = REPO_ROOT) {
   );
 }
 
+/**
+ * Licences a shipped package may have (SPDX ids). GPL / AGPL / anything unknown is refused: the
+ * app is Apache-2.0 and must stay shippable as one. Add an id only after checking it is permissive.
+ */
+export const ALLOWED_LICENCES = new Set([
+  'MIT',
+  'Apache-2.0',
+  'BSD-2-Clause',
+  'BSD-3-Clause',
+  'ISC',
+  '0BSD',
+]);
+
+/**
+ * Licences a package ships beyond what its package.json says, and the only packages allowed LGPL.
+ * occt-wasm: the OpenCascade kernel inside it is LGPL-2.1-only, shipped as its own .wasm file
+ * the app loads at run time (so it can be swapped for another build).
+ */
+export const LGPL_PARTS = new Map([['occt-wasm', 'LGPL-2.1-only']]);
+
+/** Whether one SPDX id is allowed for package `name`. */
+function idAllowed(id, name) {
+  if (ALLOWED_LICENCES.has(id)) return true;
+  return /^LGPL-/.test(id) && LGPL_PARTS.has(name);
+}
+
+/**
+ * Whether an SPDX expression is allowed for package `name`: one of the `OR` choices must be
+ * allowed, with every `AND` part in it. Brackets are ignored (fine for the simple expressions npm
+ * packages use). Empty / missing / "SEE LICENSE IN …" → not allowed.
+ */
+export function licenceAllowed(expression, name) {
+  if (typeof expression !== 'string' || expression.trim() === '') return false;
+  const plain = expression.replace(/[()]/g, ' ').trim();
+  return plain
+    .split(/\s+OR\s+/)
+    .some((choice) => choice.split(/\s+AND\s+/).every((id) => idAllowed(id.trim(), name)));
+}
+
+/** One line per shipped package whose licence (or LGPL part) is not allowed (empty: all fine). */
+export function licenceProblems(packages) {
+  const problems = [];
+  for (const p of packages) {
+    const extra = LGPL_PARTS.get(p.name);
+    for (const licence of extra === undefined ? [p.license] : [p.license, extra]) {
+      if (!licenceAllowed(licence, p.name)) {
+        problems.push(`${p.name} ${p.version}: licence "${String(licence)}" is not allowed`);
+      }
+    }
+  }
+  return problems;
+}
+
 /** Licence as the notices show it (occt-wasm: the wrapper's and the kernel's). */
 function shownLicence(p) {
   return p.name === 'occt-wasm'
-    ? 'MIT OR Apache-2.0 (wrapper); LGPL-2.1-only (OpenCascade kernel)'
+    ? `${p.license} (wrapper); ${String(LGPL_PARTS.get(p.name))} (OpenCascade kernel)`
     : p.license;
 }
 
@@ -245,12 +299,18 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   const target = join(REPO_ROOT, NOTICES_FILE);
   const text = buildNotices();
   if (process.argv.includes('--check')) {
+    const problems = licenceProblems(collectPackages());
+    if (problems.length > 0) {
+      for (const line of problems) console.error(line);
+      console.error('Allowed: ' + [...ALLOWED_LICENCES].join(', ') + ' (LGPL only for occt-wasm).');
+      process.exit(1);
+    }
     const current = existsSync(target) ? readText(target) + '\n' : '';
     if (current !== text) {
       console.error(`${NOTICES_FILE} is out of date: run node scripts/third-party-notices.js`);
       process.exit(1);
     }
-    console.log(`${NOTICES_FILE} is up to date.`);
+    console.log(`${NOTICES_FILE} is up to date; every licence is allowed.`);
   } else {
     writeFileSync(target, text);
     console.log(`Wrote ${NOTICES_FILE} (${collectPackages().length} packages).`);

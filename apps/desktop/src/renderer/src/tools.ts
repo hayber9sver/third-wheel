@@ -1,6 +1,7 @@
 /**
- * Viewport tools (cursor modes), pure. T3.1 switches tools and their cursors; painting lands in
- * T3.3 (brush; Shift erases — the separate Erase tool was removed) and T3.4 (smart fill). Box select is part of Select since T2.6 (a left drag).
+ * Viewport tools (cursor modes), pure: switching tools and their cursors. Painting tools: Brush
+ * and Smart fill (Shift erases in both; there is no separate Erase tool). Box select is part of
+ * Select (a left drag).
  */
 export type ToolId = 'select' | 'brush' | 'smart-fill';
 
@@ -46,10 +47,10 @@ export const TOOLS: readonly ToolDef[] = [
 
 export const DEFAULT_TOOL: ToolId = 'select';
 
-/** Default brush radius in mm. Fixed mm, not relative to the model (T3.1). */
+/** Default brush radius in mm. Fixed mm, not relative to the model. */
 export const DEFAULT_BRUSH_RADIUS_MM = 3;
 
-/** Brush radii in mm that `[` / `]` and Alt + scroll step through (T3.3). */
+/** Brush radii in mm that `[` / `]` and Alt + scroll step through. */
 export const BRUSH_RADII_MM: readonly number[] = [
   0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50,
 ];
@@ -92,7 +93,7 @@ export function toolTitle(def: ToolDef): string {
   return `${def.label} (${def.shortcut}) — ${def.hint}`;
 }
 
-/** Smart fill settings (T3.4): angle in degrees, or exactly the clicked B-rep face. */
+/** Smart fill settings: angle in degrees, or exactly the clicked B-rep face. */
 export interface FillSettings {
   readonly angleDeg: number;
   readonly wholeFace: boolean;
@@ -108,7 +109,7 @@ export interface EraseInfo {
  * Readout under the view while a paint tool is active, e.g.
  * "Brush 3 mm · [ ] or Alt + scroll: size · Shift: erase Marker 1",
  * "Smart fill 30° · [ ] or Alt + scroll: angle · Shift: erase Marker 1"; while Shift is held
- * "Erasing Marker 1 — release Shift to paint" (T10.1: replaces the toolbar's erase hint);
+ * "Erasing Marker 1 — release Shift to paint" (replaces the toolbar's erase hint);
  * '' for Select.
  */
 export function brushInfo(

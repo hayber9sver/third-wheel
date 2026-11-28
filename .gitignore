@@ -43,6 +43,8 @@ Thumbs.db
 !.vscode/extensions.json
 
 # Notes the app writes next to the test models when you try them by hand
-test-models/*.thirdwheel*.json
+test-models/**/*.thirdwheel*.json
+test-models/**/.thirdwheel/
+__pycache__/
 # Made by packages/geometry/scripts/make-large-step.js (~100 MB)
 test-models/synthetic-*.step

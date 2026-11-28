@@ -1,10 +1,10 @@
 /**
- * Comment pins drawn over the 3D view (T4.3): one HTML element per pin, kept between frames (so a
+ * Comment pins drawn over the 3D view: one HTML element per pin, kept between frames (so a
  * double click reaches the same element) and moved to its anchor's screen point every frame.
  * Look follows the comment cards: panel colour + number; the highlighted one is accent
  * blue and larger; AI comments get the "AI" tag's purple; closed ones are dimmed. Each pin has
  * several spots (`pinSpots`, preferred first): after a camera move it sits on the first one the
- * camera can see (T4.3); while the camera moves it stays put. With no spot in
+ * camera can see; while the camera moves it stays put. With no spot in
  * sight it goes back to the preferred one and fades, still clickable. Pins on the same spot
  * (comments on the same markers) fan out sideways so each can be clicked.
  */

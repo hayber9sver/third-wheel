@@ -1,53 +1,44 @@
-import type { VersionLink } from '@third-wheel/core';
 import { describe, expect, it } from 'vitest';
-import { versionDetail, versionLabel, versionRows } from './version-list.js';
+import type { ProjectVersionRow } from '../../shared/ipc.js';
+import { addFileQuestion, versionDetail, versionLabel, versionRows } from './version-list.js';
 
 const hash = (c: string): string => `sha256:${c.repeat(64)}`;
-const link = (name: string, c: string, more: Partial<VersionLink> = {}): VersionLink => ({
+const row = (
+  name: string,
+  c: string,
+  more: Partial<ProjectVersionRow> = {},
+): ProjectVersionRow => ({
+  id: `v-${name}`,
   path: `/m/${name}`,
   name,
   contentHash: hash(c),
-  date: '2026-11-09T14:02:00.000Z',
+  added: '2026-11-09T14:02:00.000Z',
+  shown: false,
+  onDisk: hash(c),
   ...more,
 });
 
 describe('versionRows', () => {
-  const shown = { path: '/m/widget8.step', name: 'widget8.step' };
-
-  it('lists newer versions, the shown file, then earlier ones — by link, not by name', () => {
-    const chain = {
-      newer: [link('toy_demo.step', 'c')],
-      earlier: [link('part v10.step', 'b'), link('first.step', 'a')],
-    };
-    const states = new Map([
-      ['/m/toy_demo.step', hash('c')],
-      ['/m/part v10.step', hash('b')],
-      ['/m/first.step', hash('a')],
+  it('keeps the project order (newest first) and ticks the shown version', () => {
+    const rows = versionRows([
+      row('final.step', 'd'),
+      row('widget8.step', 'c', { shown: true }),
+      row('first.step', 'a'),
     ]);
-    const rows = versionRows(shown, chain, states, [link('final.step', 'd')]);
-    expect(rows.map((r) => [r.name, r.state, r.own])).toEqual([
-      ['final.step', 'missing', false],
-      ['toy_demo.step', 'found', true],
-      ['widget8.step', 'shown', true],
-      ['part v10.step', 'found', true],
-      ['first.step', 'found', true],
+    expect(rows.map((r) => [r.name, r.state, r.id])).toEqual([
+      ['final.step', 'found', 'v-final.step'],
+      ['widget8.step', 'shown', 'v-widget8.step'],
+      ['first.step', 'found', 'v-first.step'],
     ]);
   });
 
   it('tells missing, changed and overwritten files apart', () => {
-    const chain = {
-      earlier: [
-        link('widget8.step', 'b', { overwritten: true }),
-        link('moved.step', 'c'),
-        link('replaced.step', 'd'),
-      ],
-    };
-    const states = new Map<string, string | null>([
-      ['/m/widget8.step', hash('e')],
-      ['/m/moved.step', null],
-      ['/m/replaced.step', hash('f')],
+    const rows = versionRows([
+      row('widget8.step', 'e', { shown: true }),
+      row('widget8.step', 'b', { overwritten: true, onDisk: hash('e') }),
+      row('moved.step', 'c', { onDisk: null }),
+      row('replaced.step', 'd', { onDisk: hash('f') }),
     ]);
-    const rows = versionRows(shown, chain, states);
     expect(rows.map((r) => r.state)).toEqual(['shown', 'overwritten', 'missing', 'changed']);
     expect(rows.map((r) => versionDetail(r))).toEqual([
       'shown',
@@ -58,18 +49,36 @@ describe('versionRows', () => {
     expect(rows[1] && versionLabel(rows[1])).toBe('earlier contents of widget8.step');
   });
 
-  it('lists a file and its contents once', () => {
-    const l = link('a.step', 'a');
-    const rows = versionRows(shown, { newer: [l], earlier: [l] }, new Map(), [l]);
-    expect(rows.map((r) => r.state)).toEqual(['missing', 'shown']);
+  it('shows the date added for a found version', () => {
+    const [r] = versionRows([row('a.step', 'a')]);
+    expect(r && versionDetail(r, 'en-GB')).toMatch(/9 Nov/);
+    const [bad] = versionRows([row('b.step', 'b', { added: 'not a date' })]);
+    expect(bad && versionDetail(bad)).toBe('');
   });
+});
 
-  it('shows the link date for a found version', () => {
-    const [, row] = versionRows(
-      shown,
-      { earlier: [link('a.step', 'a')] },
-      new Map([['/m/a.step', hash('a')]]),
+describe('addFileQuestion', () => {
+  const step = { fromMesh: false, fileIsMesh: false };
+  it('STEP onto STEP: markers move over; the name hint only for matching names', () => {
+    expect(addFileQuestion('bracket_v2.step', 'bracket.step', { ...step, sameName: true })).toBe(
+      'Is it a new version of bracket.step (its markers and comments move over) or a separate part of this project? Its name looks like a version of bracket.step.',
     );
-    expect(row && versionDetail(row, 'en-GB')).toMatch(/9 Nov/);
+    expect(addFileQuestion('lid.step', 'bracket.step', { ...step, sameName: false })).not.toContain(
+      'looks like',
+    );
+  });
+  it('STEP onto a mesh: paint moves onto the STEP faces; no name hint when the names differ', () => {
+    const text = addFileQuestion('cover-import.step', 'cover.stl', {
+      fromMesh: true,
+      fileIsMesh: false,
+      sameName: false,
+    });
+    expect(text).toContain('its paint and comments move onto the faces of cover-import.step');
+    expect(text).not.toContain('looks like');
+  });
+  it('a mesh onto a mesh: the general wording (it is refused as a version later)', () => {
+    expect(
+      addFileQuestion('b.stl', 'a.stl', { fromMesh: true, fileIsMesh: true, sameName: false }),
+    ).toContain('its markers and comments move over');
   });
 });

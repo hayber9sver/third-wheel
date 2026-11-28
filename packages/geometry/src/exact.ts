@@ -1,5 +1,5 @@
 /**
- * Exact measurements from OpenCascade (T2.8): face / body area, body bounding box and shortest
+ * Exact measurements from OpenCascade: face / body area, body bounding box and shortest
  * distance, for the values the Info panel otherwise takes from the mesh ("≈"). Needs the B-rep
  * shapes of a loaded model, so the import worker keeps them ({@link KeptShapes}) when asked to.
  * Only for the selection: kernel area costs ~3 ms per face.

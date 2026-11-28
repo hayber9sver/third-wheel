@@ -1,5 +1,5 @@
 /**
- * Mesh-only import (T9.1): STL (binary / ASCII) and 3MF → a {@link StepModel} with one "face" per
+ * Mesh-only import: STL (binary / ASCII) and 3MF → a {@link StepModel} with one "face" per
  * body and no edges or vertices, so brush, smart fill, markers and comments work unchanged while
  * entity selection stays off. No kernel: plain parsing, testable in Node.
  *
@@ -394,6 +394,7 @@ export function meshModel(bodies: readonly MeshBody[], format: MeshFormat): Step
     edgePoints: new Float32Array(0),
     edgeRanges: new Uint32Array(0),
     edgeBody: new Uint32Array(0),
+    edgeChain: new Uint32Array(0),
     edgeTypes: [],
     edgeGeometry: new Float32Array(0),
     vertexPositions: new Float32Array(0),

@@ -1,5 +1,5 @@
 /**
- * Undo/redo history (T3.5). Pure — no DOM. A step knows how to undo and redo itself; the history
+ * Undo/redo history. Pure — no DOM. A step knows how to undo and redo itself; the history
  * keeps them in order, drops the oldest beyond `limit`, and forgets the redo steps when a new
  * step is pushed. Opening a model clears it (ids belong to one model).
  *

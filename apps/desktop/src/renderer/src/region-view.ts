@@ -1,5 +1,5 @@
 /**
- * Camera for a region render (T6.3), pure: which points the picture must show, from which
+ * Camera for a region render, pure: which points the picture must show, from which
  * direction, and how far zoomed (orthographic). The direction is the region's
  * average outward normal; a region that wraps around (hole, pin, whole body) is turned towards an
  * iso corner; edges / vertices without faces are seen from outside their body. "Up" is Z where
@@ -42,7 +42,7 @@ export interface RegionSamples {
   readonly area: number;
   /** Unit direction from the centre of their bodies to the held edges / vertices; none → undefined. */
   readonly outward: Vec3 | undefined;
-  /** Bodies the region lies on (never ghosted in its picture, T6.5), ascending. */
+  /** Bodies the region lies on (never ghosted in its picture), ascending. */
   readonly bodies: readonly number[];
 }
 

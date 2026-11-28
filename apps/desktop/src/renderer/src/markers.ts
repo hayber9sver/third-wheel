@@ -1,12 +1,18 @@
 /**
- * Markers (T3.2): named, coloured paint layers. Pure state — no DOM. There is always exactly one
+ * Markers: named, coloured paint layers. Pure state — no DOM. There is always exactly one
  * active marker while any exist; a fresh list starts with "Marker 1" so Brush works right away
  * (like slicers where a colour is always active).
  *
- * T3.7: a marker also holds exact B-rep entities (vertex / edge / face / body ids). They stay exact
+ * A marker also holds exact B-rep entities (vertex / edge / face / body ids). They stay exact
  * (never turned into paint); one entity may sit in several markers.
  */
-import type { MarkerTransfer } from '@third-wheel/core';
+import {
+  copyMarkerName,
+  isMarkerNameTaken,
+  markerNameKey,
+  newId,
+  type MarkerTransfer,
+} from '@third-wheel/core';
 import type { SelectionItem } from './selection.js';
 
 /** An entity held by a marker. `seq` grows with every add (across markers): "added last" wins. */
@@ -23,10 +29,10 @@ export interface Marker {
   /** `#rrggbb` (lower case). */
   readonly color: string;
   readonly visible: boolean;
-  /** Exact entities in the order they were added (T3.7). */
+  /** Exact entities in the order they were added. */
   readonly entities: readonly MarkerEntity[];
   /**
-   * How it came over from the previous version of the model (T8.2): changed / lost / needs check,
+   * How it came over from the previous version of the model: changed / lost / needs check,
    * until the user says it looks right. Undefined = found where it was (or never moved).
    */
   readonly transfer?: MarkerTransfer;
@@ -62,7 +68,7 @@ export function colorToHex(color: string): number {
 }
 
 /** First palette colour no marker uses yet; when all are used, cycle by count. */
-export function nextMarkerColor(markers: readonly Marker[]): string {
+export function nextMarkerColor(markers: readonly Pick<Marker, 'color'>[]): string {
   const used = new Set(markers.map((m) => m.color));
   const free = MARKER_COLORS.find((c) => !used.has(c.hex));
   const pick = free ?? MARKER_COLORS[markers.length % MARKER_COLORS.length];
@@ -70,7 +76,7 @@ export function nextMarkerColor(markers: readonly Marker[]): string {
 }
 
 /** "Marker N" with N one above the highest "Marker N" in use (never reuses a visible number). */
-export function nextMarkerName(markers: readonly Marker[]): string {
+export function nextMarkerName(markers: readonly Pick<Marker, 'name'>[]): string {
   let max = 0;
   for (const m of markers) {
     const n = /^Marker (\d+)$/.exec(m.name)?.[1];
@@ -79,19 +85,23 @@ export function nextMarkerName(markers: readonly Marker[]): string {
   return `Marker ${String(max + 1)}`;
 }
 
+function named(names: readonly string[]): { name: string }[] {
+  return names.map((name) => ({ name }));
+}
+
 /** Trimmed, length-capped name; empty → undefined (rename is then ignored). */
 export function cleanMarkerName(text: string): string | undefined {
   const name = text.replace(/\s+/g, ' ').trim().slice(0, MAX_MARKER_NAME);
   return name === '' ? undefined : name;
 }
 
-/** List + active marker, for undo (T3.5). */
+/** List + active marker, for undo. */
 export interface MarkersState {
   readonly items: readonly Marker[];
   readonly activeId: string | undefined;
 }
 
-/** An undoable change (T3.5): not setActive / setVisible (view state). */
+/** An undoable change: not setActive / setVisible (view state). */
 export interface MarkerEdit {
   readonly kind:
     | 'add'
@@ -112,8 +122,12 @@ export interface MarkerEdit {
 export class Markers {
   private items: Marker[] = [];
   private activeId: string | undefined;
-  private counter = 0;
-  /** Entity add counter (`MarkerEntity.seq`); never wound back, like `counter`. */
+  /**
+   * The project's markers this list doesn't hold (other parts, other versions): names are unique
+   * in the project, so theirs are taken too. Ones that come into the list count as its own.
+   */
+  private others: readonly { readonly id: string; readonly name: string }[] = [];
+  /** Entity add counter (`MarkerEntity.seq`); never wound back. */
   private entitySeq = 0;
   /** Called after every change with the new list and active id. */
   onChange: ((markers: readonly Marker[], activeId: string | undefined) => void) | undefined;
@@ -124,14 +138,22 @@ export class Markers {
   onEdit: ((edit: MarkerEdit) => void) | undefined;
   private quiet = false;
 
-  constructor() {
+  /**
+   * `makeId`: a new marker's id — random (unique in the project, never reused, so a new marker
+   * never takes an id another part or an undone marker had). Tests pass a counter.
+   */
+  constructor(private readonly makeId: () => string = () => newId()) {
     this.reset();
   }
 
-  /** Back to a single "Marker 1" (opening a model; markers belong to its annotations). */
-  reset(): void {
+  /**
+   * Back to a single "Marker 1" (opening a model; markers belong to its annotations). The
+   * project's other markers are forgotten too ({@link setOthers} brings them), unless `keepOthers`
+   * (the same model starting empty).
+   */
+  reset(keepOthers = false): void {
     this.items = [];
-    this.counter = 0;
+    if (!keepOthers) this.others = [];
     this.activeId = undefined;
     this.quiet = true;
     try {
@@ -141,25 +163,51 @@ export class Markers {
     }
   }
 
+  /**
+   * The project's other markers (from opening a version). A fresh list's untouched default
+   * marker whose name one of them uses takes the next free name (not undoable).
+   */
+  setOthers(others: readonly { readonly id: string; readonly name: string }[]): void {
+    this.others = others;
+    const only = this.items.length === 1 ? this.items[0] : undefined;
+    if (!only || only.entities.length > 0 || !this.takenBy(only.name, only.id)) return;
+    this.items = [{ ...only, name: nextMarkerName(named(this.names(only.id))) }];
+    this.emit();
+  }
+
+  /**
+   * The name (as written there) of another marker of the project that `text` would clash with
+   * (case and extra spaces ignored), or undefined when `text` is free for marker `id`.
+   */
+  takenBy(text: string, id?: string): string | undefined {
+    const key = markerNameKey(text);
+    return this.names(id).find((n) => markerNameKey(n) === key);
+  }
+
+  /** Names of the list's markers (but `except`) and of the project's other markers. */
+  names(except?: string): string[] {
+    const ids = new Set(this.items.map((m) => m.id));
+    return [
+      ...this.items.filter((m) => m.id !== except).map((m) => m.name),
+      ...this.others.filter((m) => !ids.has(m.id) && m.id !== except).map((m) => m.name),
+    ];
+  }
+
   state(): MarkersState {
     return { items: this.items, activeId: this.activeId };
   }
 
   /**
-   * Markers read from a sidecar (T5.1); the first one is active. Not undoable. New ids and entity
-   * `seq`s continue above the loaded ones. An empty list starts fresh with "Marker 1".
+   * Markers read from a sidecar; the first one is active. Not undoable. Entity `seq`s
+   * continue above the loaded ones. An empty list starts fresh with "Marker 1".
    */
   load(items: readonly Marker[]): void {
     if (items.length === 0) {
-      this.reset();
+      this.reset(true);
       return;
     }
     this.items = [...items];
     this.activeId = items[0]?.id;
-    this.counter = maxNumber(
-      items.map((m) => m.id),
-      /^m(\d+)$/,
-    );
     this.entitySeq = Math.max(0, ...items.flatMap((m) => m.entities.map((e) => e.seq)));
     this.emit();
   }
@@ -167,8 +215,8 @@ export class Markers {
   /**
    * Puts back a list from `state()` (undo / redo). Visibility stays as it is now for markers that
    * still exist (hiding is not undoable). `takeActive`: also restore which marker was active (add /
-   * delete changed it); else the current one stays when it still exists. Ids are never reused:
-   * the counter is not wound back.
+   * delete changed it); else the current one stays when it still exists. Ids are never reused
+   * (random).
    */
   restore(state: MarkersState, takeActive: boolean): void {
     const now = new Map(this.items.map((m) => [m.id, m]));
@@ -196,14 +244,15 @@ export class Markers {
   /**
    * Adds a marker with the next name and colour and makes it active; `entities` go in it right
    * away (right-click "Add to marker ▸ New marker": one undo step). `name` replaces the next
-   * "Marker N" (e.g. "Comment 2" from "Comment on selection", T4.2).
+   * "Marker N" (e.g. "Comment 2" from "Comment on selection").
    */
   add(entities: readonly SelectionItem[] = [], name?: string): Marker {
     const before = this.state();
-    this.counter += 1;
+    let id = this.makeId();
+    while (this.get(id)) id = this.makeId();
     const marker: Marker = {
-      id: `m${String(this.counter)}`,
-      name: (name === undefined ? undefined : cleanMarkerName(name)) ?? nextMarkerName(this.items),
+      id,
+      name: this.freeName(name),
       color: nextMarkerColor(this.items),
       visible: true,
       entities: this.stamp(uniqueItems(entities)),
@@ -221,13 +270,26 @@ export class Markers {
     this.emit();
   }
 
-  /** Empty / whitespace names are ignored. Returns whether the name changed. */
+  /**
+   * Empty / whitespace names and names another marker of the project uses ({@link takenBy}) are
+   * ignored. Returns whether the name changed.
+   */
   rename(id: string, text: string): boolean {
     const name = cleanMarkerName(text);
-    return name !== undefined && this.patch(id, { name }, 'rename');
+    return name !== undefined && !this.takenBy(name, id) && this.patch(id, { name }, 'rename');
   }
 
-  /** Invalid colours are ignored. `live`: from the system picker while it is dragged (T3.5). */
+  /** `wanted` (cleaned), or "wanted (2)" … when taken; no name → the next free "Marker N". */
+  private freeName(wanted: string | undefined): string {
+    const all = this.names();
+    const name = wanted === undefined ? undefined : cleanMarkerName(wanted);
+    if (name === undefined) return nextMarkerName(named(all));
+    return isMarkerNameTaken(name, all)
+      ? copyMarkerName(name, new Set(all.map(markerNameKey)))
+      : name;
+  }
+
+  /** Invalid colours are ignored. `live`: from the system picker while it is dragged. */
   setColor(id: string, text: string, live = false): boolean {
     const color = normalizeColor(text);
     return color !== undefined && this.patch(id, { color }, 'color', live);
@@ -254,7 +316,7 @@ export class Markers {
     return true;
   }
 
-  /** "Looks right" on a marker flagged by the revision transfer (T8.2): the flag goes. */
+  /** "Looks right" on a marker flagged by the revision transfer: the flag goes. */
   confirmTransfer(id: string): boolean {
     const old = this.get(id);
     if (!old?.transfer) return false;
@@ -269,7 +331,7 @@ export class Markers {
   }
 
   /**
-   * "✓ Place here" on a "? Check" marker (T8.5): it now holds `items` too (its paint is
+   * "✓ Place here" on a "? Check" marker: it now holds `items` too (its paint is
    * set by the caller); what still couldn't be placed stays as a ghost, flagged ✕ Lost.
    */
   placeTransfer(
@@ -294,7 +356,7 @@ export class Markers {
     return true;
   }
 
-  /** Adds `items` not yet in the marker (T3.7). Returns how many were added. */
+  /** Adds `items` not yet in the marker. Returns how many were added. */
   addEntities(id: string, items: readonly SelectionItem[]): number {
     const marker = this.get(id);
     if (!marker) return 0;
@@ -366,14 +428,10 @@ export class Markers {
   }
 }
 
-/** Highest number in `ids` matching `pattern` (group 1), 0 if none. */
-export function maxNumber(ids: Iterable<string>, pattern: RegExp): number {
-  let max = 0;
-  for (const id of ids) {
-    const n = pattern.exec(id)?.[1];
-    if (n) max = Math.max(max, Number(n));
-  }
-  return max;
+/** Ids `m1`, `m2`, … for tests (the app uses random ids). */
+export function counterIds(prefix: string): () => string {
+  let n = 0;
+  return () => `${prefix}${String(++n)}`;
 }
 
 function uniqueItems(items: readonly SelectionItem[]): SelectionItem[] {
@@ -390,10 +448,12 @@ function uniqueItems(items: readonly SelectionItem[]): SelectionItem[] {
 export interface ShownEntity extends SelectionItem {
   readonly markerId: string;
   readonly color: string;
+  /** Resolved marker shown by "Show resolved": drawn faded unless its comment is highlighted. */
+  readonly fade?: boolean;
 }
 
 /**
- * Which marker colours each entity (T3.7): only visible markers count; the active marker
+ * Which marker colours each entity: only visible markers count; the active marker
  * if it holds the entity, else the visible marker it was added to last. Each entity appears once.
  */
 export function shownEntities(markers: readonly Marker[], activeId?: string): ShownEntity[] {

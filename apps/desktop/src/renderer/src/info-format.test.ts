@@ -1,6 +1,13 @@
 import type { EntityInfo } from '@third-wheel/geometry';
 import { describe, expect, it } from 'vitest';
-import { infoRows, infoTitle, measurementRows, num, sizeHint } from './info-format.js';
+import {
+  dimensionLabel,
+  infoRows,
+  infoTitle,
+  measurementRows,
+  num,
+  sizeHint,
+} from './info-format.js';
 
 const rows = (info: EntityInfo): Record<string, string> =>
   Object.fromEntries(infoRows(info).map((r) => [r.label, r.value]));
@@ -126,5 +133,15 @@ describe('measurementRows', () => {
     expect(label('lines')).toBe('Angle');
     expect(label('axis-plane')).toBe('Axis to plane');
     expect(label('edge-plane')).toBe('Edge to plane');
+  });
+});
+
+describe('dimensionLabel', () => {
+  it('mm with Ø / R, ≈ only for mesh values, degrees for angles', () => {
+    expect(dimensionLabel({ kind: 'length', value: 40, exact: true })).toBe('40 mm');
+    expect(dimensionLabel({ kind: 'distance', value: 2.5, exact: false })).toBe('≈ 2.5 mm');
+    expect(dimensionLabel({ kind: 'diameter', value: 6, exact: true })).toBe('Ø6 mm');
+    expect(dimensionLabel({ kind: 'radius', value: 1.25, exact: true })).toBe('R1.25 mm');
+    expect(dimensionLabel({ kind: 'angle', value: 90, exact: true })).toBe('90°');
   });
 });

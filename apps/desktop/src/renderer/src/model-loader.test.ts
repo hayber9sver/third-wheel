@@ -47,6 +47,7 @@ const counted = (faces: number): StepModel =>
     bodyCount: 1,
     faceBody: new Uint32Array(faces),
     edgeBody: new Uint32Array(1),
+    edgeChain: new Uint32Array(1),
     vertexBody: new Uint32Array(1),
   }) as unknown as StepModel;
 const request: ExactRequest = { faceAreas: [0], bodyAreas: [], bodyBoxes: [], distances: [] };

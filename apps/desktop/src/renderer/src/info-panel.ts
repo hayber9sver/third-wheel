@@ -1,13 +1,13 @@
-/** Info section of the right panel (T2.5): read-only facts about the selection. */
+/** Info section of the right panel: read-only facts about the selection. */
 import type { InfoBlock } from './info-format.js';
 
 export const INFO_EMPTY_HINT =
   'Select something to see its size and position. Select two things to measure between them.';
-/** T9.1: a mesh file has nothing to select. */
+/** A mesh file has nothing to select. */
 export const INFO_MESH_HINT =
   'Mesh file: nothing to select or measure here. Open the STEP to see sizes and positions.';
 
-/** The "Exact values" button under the blocks (T2.8): shown while a value has "≈". */
+/** The "Exact values" button under the blocks: shown while a value has "≈". */
 export interface ExactAction {
   /** Working: the button is disabled and says so; `note` shows progress. */
   readonly busy: boolean;

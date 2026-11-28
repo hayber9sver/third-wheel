@@ -29,7 +29,7 @@ export interface ImportProgress {
   readonly label: string;
 }
 
-/** Keep the model's shapes for {@link StepImportClient.exact} (T2.8). */
+/** Keep the model's shapes for {@link StepImportClient.exact}. */
 export interface KeepOptions {
   /**
    * Keep them only if OpenCascade's WASM heap is at most this big after the import (the heap
@@ -45,7 +45,7 @@ type Request =
       data: ArrayBuffer;
       tessellation?: TessellationSettings;
       keep?: KeepOptions;
-      /** A mesh file (T9.1): parsed without the kernel; `name` names a single-body file. */
+      /** A mesh file: parsed without the kernel; `name` names a single-body file. */
       mesh?: { format: MeshFormat; name: string };
     }
   | { type: 'exact'; id: number; request: ExactRequest };

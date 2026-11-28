@@ -1,19 +1,22 @@
-/** Pure TypeScript domain logic: schema, region analysis, sidecar I/O, annotation transfer. */
-export const PACKAGE_NAME = '@third-wheel/core';
-
-/** Sidecar file name for a model file, e.g. `part.step` → `part.step.thirdwheel.json`. */
-export function sidecarFileName(modelFileName: string): string {
-  return `${modelFileName}.thirdwheel.json`;
-}
-
+/** Pure TypeScript domain logic: schemas, project files, region analysis, bridge protocol. */
 export * from './schema.js';
 export * from './runs.js';
 export * from './format-json.js';
 export * from './region.js';
 export * from './bridge.js';
 export * from './bridge-methods.js';
+export * from './chat-methods.js';
 export * from './thread.js';
 export * from './parts.js';
 export * from './body-names.js';
 export * from './versions.js';
-export * from './version-chain.js';
+export * from './project-schema.js';
+export * from './project-paths.js';
+export * from './project-lock.js';
+export * from './project-store.js';
+export * from './project-migrate.js';
+export * from './project-notes.js';
+export * from './project-chats.js';
+export * from './project-parts.js';
+export * from './marker-names.js';
+export * from './agent-text.js';

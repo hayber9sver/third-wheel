@@ -1,7 +1,6 @@
 /**
- * Review payload (T6.2): the compact JSON an AI agent gets for a review (MCP `get_annotations`,
- * T7.2). Comments first, then only the markers they point at, each with a rounded paint summary
- * (T6.1 region analysis) and its held entities with entity info (T2.5). Never triangles.
+ * Review payload: the compact JSON an AI agent gets for a review (MCP `get_annotations`). Comments first, then only the markers they point at, each with a rounded paint summary
+ * (region analysis, @third-wheel/core region.ts) and its held entities with entity info. Never triangles.
  * Long lists are cut, largest first, with a count of what was left out. Target: < 2k tokens for a
  * typical review (a few comments, a few markers). Pure: no kernel calls.
  */
@@ -14,7 +13,15 @@ import {
   type PartItemData,
   type RegionSummary,
 } from '@third-wheel/core';
-import { entityInfo, faceAreas, type EntityInfo, type InfoModel } from './entity-info.js';
+import { pairDimension, type DimensionKind } from './dimension.js';
+import {
+  entityInfo,
+  faceAreas,
+  measure,
+  type EntityInfo,
+  type EntityRef,
+  type InfoModel,
+} from './entity-info.js';
 import type { StepModel } from './model.js';
 import { compact, round, roundV } from './round.js';
 import type { V3 } from './vec.js';
@@ -37,22 +44,47 @@ export interface ReviewOptions {
 
 export interface ReviewComment {
   readonly id: string;
+  /** Card number the user sees ("#3": position in the comment list, from 1). */
+  readonly n: number;
   readonly text: string;
   readonly status: CommentStatus;
   readonly by: 'human' | 'ai';
   /** Marker ids (see `markers`); empty = a general remark about the model. */
   readonly markers: readonly string[];
-  /** Other model files the comment is about, by file name (T7.4). */
+  /** Other model files the comment is about, by file name. */
   readonly linkedModels?: readonly string[];
   /**
    * Parts the user asks for (library parts to build with build123d and place), each with its choices
    * and, once the AI has answered, its `result`. Marker ids are in `markers`.
    */
   readonly parts?: readonly PartItemData[];
-  /** The thread (T7.5), oldest first; only the last `maxReplies`. */
+  /** The thread, oldest first; only the last `maxReplies`. */
   readonly replies?: readonly ReviewReply[];
   /** Earlier replies left out. */
   readonly moreReplies?: number;
+  /** When the comment's markers hold exactly two entities: what lies between them. */
+  readonly measured?: ReviewMeasured;
+}
+
+/**
+ * Values between the two entities a comment's markers hold, the numbers the app's Info
+ * shows; `main` is the one the app draws as a dimension. mm / degrees, to 0.001.
+ */
+export interface ReviewMeasured {
+  readonly between: readonly [ReviewRef, ReviewRef];
+  readonly main?: { readonly kind: DimensionKind; readonly value: number };
+  /** Shortest distance; `distanceApprox` = taken from the mesh (curved shapes). */
+  readonly distance?: number;
+  readonly distanceApprox?: true;
+  readonly centreDistance?: number;
+  readonly axisDistance?: number;
+  readonly planeDistance?: number;
+  readonly angle?: number;
+  readonly angleBetween?: 'lines' | 'planes' | 'edge-plane' | 'axis-plane';
+}
+export interface ReviewRef {
+  readonly kind: EntityInfo['kind'];
+  readonly id: number;
 }
 
 export interface ReviewReply {
@@ -120,7 +152,7 @@ export interface ReviewMarker {
   readonly moreEntities?: number;
   /**
    * Set when the marker came over from the previous version and was not found where it was
-   * (T8.2): `changed` (moved / resized, please confirm), `lost` or `check` (mirrored body, not
+   *: `changed` (moved / resized, please confirm), `lost` or `check` (mirrored body, not
    * moved). `was` = roughly where it was (lost / check: it holds nothing now).
    */
   readonly transfer?: {
@@ -139,7 +171,7 @@ export interface ReviewPayload {
   readonly path?: string;
   readonly units: 'mm';
   /**
-   * Set for a mesh file (STL / 3MF, T9.1): no CAD entities exist, each painted "face" is a whole
+   * Set for a mesh file (STL / 3MF): no CAD entities exist, each painted "face" is a whole
    * mesh body (type "mesh"); use the paint's centre / size / normal and patches.
    */
   readonly mesh?: 'stl' | '3mf';
@@ -165,6 +197,7 @@ export function reviewPayload(
   options: ReviewOptions = {},
 ): ReviewPayload {
   const { statuses, maxFaces = 8, maxPatches = 5, maxEntities = 10, maxReplies = 10 } = options;
+  const number = new Map(doc.comments.map((c, i) => [c.id, i + 1]));
   const comments = doc.comments.filter((c) => !statuses || statuses.includes(c.status));
   const byId = new Map(doc.markers.map((m) => [m.id, m]));
   const wanted: MarkerData[] = [];
@@ -215,6 +248,7 @@ export function reviewPayload(
       const shown = thread.slice(Math.max(0, thread.length - maxReplies));
       return compact({
         id: c.id,
+        n: number.get(c.id) ?? 0,
         text: c.text,
         status: c.status,
         by: c.author,
@@ -226,6 +260,7 @@ export function reviewPayload(
             ? shown.map((r) => compact({ by: r.author, text: r.text, status: r.status }))
             : undefined,
         moreReplies: thread.length > shown.length ? thread.length - shown.length : undefined,
+        measured: doc.model.format === 'step' ? measuredFor(model, c.markerIds, byId) : undefined,
       });
     }),
     markers,
@@ -233,6 +268,45 @@ export function reviewPayload(
       [...bodies].sort((a, b) => a[0] - b[0]).map(([k, v]) => [String(k), v]),
     ),
   };
+}
+
+/** Decimals for measured values (0.001 mm / degree). */
+const MEASURED = 3;
+
+/** Values between the two entities the given markers hold together, else undefined. */
+function measuredFor(
+  model: ReviewModel,
+  markerIds: readonly string[],
+  byId: ReadonlyMap<string, MarkerData>,
+): ReviewMeasured | undefined {
+  const refs: EntityRef[] = [];
+  const seen = new Set<string>();
+  for (const id of markerIds)
+    for (const e of byId.get(id)?.entities ?? []) {
+      const key = `${e.kind}:${String(e.id)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      refs.push({ kind: e.kind, id: e.id });
+    }
+  const [a, b] = refs;
+  if (!a || !b || refs.length !== 2) return undefined;
+  const r = measure(model, a, b);
+  const d = pairDimension(model, a, b, r);
+  const v = (x: number | undefined) => round(x, MEASURED);
+  return compact({
+    between: [
+      { kind: a.kind, id: a.id },
+      { kind: b.kind, id: b.id },
+    ] as const,
+    main: d && { kind: d.kind, value: v(d.value) ?? 0 },
+    distance: v(r.distance?.value),
+    distanceApprox: r.distance && !r.distance.exact ? (true as const) : undefined,
+    centreDistance: v(r.centreDistance),
+    axisDistance: v(r.axisDistance),
+    planeDistance: v(r.planeDistance),
+    angle: v(r.angle),
+    angleBetween: r.angleBetween,
+  });
 }
 
 function paintSummary(
@@ -305,7 +379,7 @@ export function describeEntity(i: EntityInfo): ReviewEntity {
 }
 
 /**
- * The payload of `reviewPayload(…, { statuses })` cut from one made with every status (T7.4: a
+ * The payload of `reviewPayload(…, { statuses })` cut from one made with every status (a
  * model no longer shown keeps its payload, the app has no mesh for it any more). Markers follow
  * the kept comments in first-mention order; bodies follow the kept markers.
  */
@@ -313,7 +387,16 @@ export function filterReviewPayload(
   full: ReviewPayload,
   statuses: readonly CommentStatus[],
 ): ReviewPayload {
-  const comments = full.comments.filter((c) => statuses.includes(c.status));
+  return keepComments(full, (c) => statuses.includes(c.status));
+}
+
+/** One comment of a payload with its markers and bodies (a thread reply sent to the agent). */
+export function commentPayload(full: ReviewPayload, commentId: string): ReviewPayload {
+  return keepComments(full, (c) => c.id === commentId);
+}
+
+function keepComments(full: ReviewPayload, keep: (c: ReviewComment) => boolean): ReviewPayload {
+  const comments = full.comments.filter(keep);
   const byId = new Map(full.markers.map((m) => [m.id, m]));
   const markers: ReviewMarker[] = [];
   for (const c of comments)

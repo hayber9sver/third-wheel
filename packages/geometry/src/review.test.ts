@@ -3,7 +3,13 @@ import { OcctKernel } from 'occt-wasm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { bodyFingerprints, edgeMidpoint, entityFingerprints } from './fingerprint.js';
 import type { StepModel } from './model.js';
-import { estimateTokens, filterReviewPayload, reviewPayload, reviewPayloadText } from './review.js';
+import {
+  commentPayload,
+  estimateTokens,
+  filterReviewPayload,
+  reviewPayload,
+  reviewPayloadText,
+} from './review.js';
 import { importStep } from './step-import.js';
 
 let m: StepModel;
@@ -143,6 +149,25 @@ describe('reviewPayload', () => {
     expect(p.bodies).toEqual({ '0': m.bodyNames[0], '1': m.bodyNames[1] });
   });
 
+  it("measured: only when the comment's markers hold exactly two entities", () => {
+    const p = reviewPayload(m, review());
+    const c2 = p.comments.find((c) => c.id === 'c2');
+    // Hole circle edge ↔ the plate's right side: axis 30 mm from the plane (the drawn one).
+    expect(c2?.measured?.main).toEqual({ kind: 'distance', value: 30 });
+    expect(c2?.measured?.planeDistance).toBe(30);
+    expect(c2?.measured?.between.map((r) => r.kind).sort()).toEqual(['edge', 'face']);
+    // c1: paint only; c3: one body (+ paint) → nothing measured.
+    expect(p.comments.find((c) => c.id === 'c1')?.measured).toBeUndefined();
+    expect(p.comments.find((c) => c.id === 'c3')?.measured).toBeUndefined();
+    // Three entities → nothing.
+    const doc = review();
+    const three = {
+      ...doc,
+      comments: doc.comments.map((c) => (c.id === 'c2' ? { ...c, markerIds: ['m2', 'm3'] } : c)),
+    };
+    expect(reviewPayload(m, three).comments.find((c) => c.id === 'c2')?.measured).toBeUndefined();
+  });
+
   it('describes a painted hole: area, normal, cylinder face with radius and full coverage', () => {
     const m1 = reviewPayload(m, review()).markers[0];
     expect(m1?.paint?.patchCount).toBe(1);
@@ -167,7 +192,7 @@ describe('reviewPayload', () => {
     expect(m2?.entities?.[0]?.arcAngle).toBeUndefined();
   });
 
-  it('sends the thread: an old note first, the latest replies only (T7.5)', () => {
+  it('sends the thread: an old note first, the latest replies only', () => {
     const doc = review();
     const c2 = doc.comments[1];
     if (!c2) throw new Error('no c2');
@@ -204,14 +229,32 @@ describe('reviewPayload', () => {
     expect(p.markers.map((x) => x.id)).toEqual(['m2', 'm1']);
   });
 
-  it('filterReviewPayload of the full payload = a payload made with those statuses (T7.4)', () => {
+  it('filterReviewPayload of the full payload = a payload made with those statuses', () => {
     const full = reviewPayload(m, review());
     const sets: CommentStatus[][] = [['open'], ['resolved'], ['wontfix'], ['open', 'resolved']];
     for (const statuses of sets)
       expect(filterReviewPayload(full, statuses)).toEqual(reviewPayload(m, review(), { statuses }));
   });
 
-  it('linked model files go along with their comment (T7.4)', () => {
+  it('card numbers count every comment, whatever the status filter', () => {
+    const doc = review();
+    const all = reviewPayload(m, doc).comments.map((c) => [c.id, c.n]);
+    expect(all).toEqual(doc.comments.map((c, i) => [c.id, i + 1]));
+    for (const c of reviewPayload(m, doc, { statuses: ['resolved'] }).comments)
+      expect(c.n).toBe(doc.comments.findIndex((x) => x.id === c.id) + 1);
+  });
+
+  it('commentPayload keeps one comment with its own markers and bodies', () => {
+    const full = reviewPayload(m, review());
+    const c = full.comments.find((x) => x.markers.length > 0);
+    if (!c) throw new Error('no comment with markers');
+    const one = commentPayload(full, c.id);
+    expect(one.comments).toEqual([c]);
+    expect(one.markers.map((x) => x.id)).toEqual(c.markers);
+    expect(commentPayload(full, 'nope').comments).toEqual([]);
+  });
+
+  it('linked model files go along with their comment', () => {
     const doc = review();
     const c1 = doc.comments[0];
     if (!c1) throw new Error('no comment');

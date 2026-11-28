@@ -1,5 +1,5 @@
 /**
- * Right-click menu (T3.7), like the OS / CAD context menus: items, separators, greyed-out items
+ * Right-click menu, like the OS / CAD context menus: items, separators, greyed-out items
  * with a hint, and one level of submenus (open on hover, click or →). Closes on a choice, Esc,
  * a press outside, scrolling, or the window losing focus.
  */
@@ -27,7 +27,7 @@ export class ContextMenu {
   private readonly root = document.createElement('div');
   private sub: HTMLElement | undefined;
   private subOwner: HTMLButtonElement | undefined;
-  /** Toolbar button the menu drops down from: pressing it again closes the menu (T3.8). */
+  /** Toolbar button the menu drops down from: pressing it again closes the menu. */
   private owner: HTMLElement | undefined;
   private closedBy: { owner: HTMLElement; at: number } | undefined;
 

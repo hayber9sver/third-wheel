@@ -1,0 +1,27 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "cursor",
+  "label": "Cursor",
+  "tab": "Cursor",
+  "order": 40,
+  "tested": null,
+  "engine": "link",
+  "link": {
+    "url": "cursor://anysphere.cursor-deeplink/mcp/install?name={name}&config={config}",
+    "config": { "command": "{command}", "args": ["{serverPath}"], "env": "{env}" },
+    "encode": "base64"
+  },
+  "manual": {
+    "json": {
+      "mcpServers": {
+        "{name}": { "command": "{command}", "args": ["{serverPath}"], "env": "{env}" }
+      }
+    }
+  },
+  "texts": {
+    "button": "Add to Cursor",
+    "buttonHint": "Opens Cursor, which asks you to confirm.",
+    "title": "Or add this to Cursor’s mcp.json",
+    "where": "~/.cursor/mcp.json for all folders (Windows: C:\\Users\\you\\.cursor\\mcp.json), or .cursor/mcp.json in your project folder. Already has servers? Paste the \"third-wheel\": { … } part inside its \"mcpServers\". Check in Cursor Settings → MCP."
+  }
+}

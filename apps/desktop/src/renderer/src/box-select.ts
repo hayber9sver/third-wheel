@@ -1,5 +1,5 @@
 /**
- * Box select (T2.4, T2.6), pure. The user drags a rectangle: left→right **adds** to the
+ * Box select, pure. The user drags a rectangle: left→right **adds** to the
  * selection, right→left **removes** from it. Which entities count:
  * - **window** (no Alt): visible entities lying *fully* inside the rectangle;
  * - **crossing** (Alt, pressed any time during the drag): visible entities with any visible
@@ -28,18 +28,18 @@ export interface Rect {
 /** What a finished box does to the selection. */
 export type BoxAction = 'add' | 'remove';
 
-/** No Alt = window (fully inside), Alt = crossing (T2.6). */
+/** No Alt = window (fully inside), Alt = crossing. */
 export function boxMode(altKey: boolean): BoxMode {
   return altKey ? 'crossing' : 'window';
 }
 
-/** Left→right (or straight up/down) = add, right→left = remove (T2.6). */
+/** Left→right (or straight up/down) = add, right→left = remove. */
 export function boxAction(startX: number, endX: number): BoxAction {
   return endX >= startX ? 'add' : 'remove';
 }
 
 /**
- * Label next to the box while dragging (T2.7): what releasing does, plus how to switch the mode,
+ * Label next to the box while dragging: what releasing does, plus how to switch the mode,
  * e.g. "+ inside · Alt: crossing". Replaces the long status-bar hint.
  */
 export function boxLabel(action: BoxAction, mode: BoxMode): string {

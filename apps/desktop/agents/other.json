@@ -1,0 +1,20 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "other",
+  "label": "Other",
+  "tab": "Other",
+  "order": 90,
+  "tested": "Copy-paste only: the standard mcpServers JSON, the same Claude Code reads from .mcp.json",
+  "engine": "manual",
+  "manual": {
+    "json": {
+      "mcpServers": {
+        "{name}": { "command": "{command}", "args": ["{serverPath}"], "env": "{env}" }
+      }
+    }
+  },
+  "texts": {
+    "title": "Paste this into your agent’s MCP settings",
+    "where": "Cline, LM Studio, Continue, Goose and others: open their MCP settings and paste the \"third-wheel\": { … } part inside \"mcpServers\". Some stop a tool after 60 s: raise that limit if it has one (waiting for your review takes longer). ChatGPT and Ollama alone can’t use it. Details: docs/user-guide.md, “Other AI agents”."
+  }
+}

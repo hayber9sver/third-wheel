@@ -6,6 +6,6 @@ packages:
 onlyBuiltDependencies:
   - electron
 # occt-wasm reads result pointers as signed ints: above 2 GB of WASM heap (e.g. after reading a
-# 400 MB STEP) meshes/edges came back as garbage. The patch adds `>>> 0` (T1.7; report upstream).
+# 400 MB STEP) meshes/edges came back as garbage. The patch adds `>>> 0` (report upstream).
 patchedDependencies:
   occt-wasm@5.15.0: patches/occt-wasm@5.15.0.patch
