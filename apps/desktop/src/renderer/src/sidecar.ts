@@ -1,9 +1,9 @@
 /**
- * Sidecar ↔ app state (T5.1). Pure: no DOM, no file access (main reads and writes the file).
+ * Sidecar ↔ app state. Pure: no DOM, no file access (main reads and writes the file).
  *
  * Paint is stored per marker and CAD face: whole triangles as runs, cut triangles as that marker's
  * 0/1 piece tree, plus per face up to `MAX_SAMPLES` (per marker) surface points spread evenly
- * over the paint and the face's fingerprint, for revision transfer (T8.2). On load,
+ * over the paint and the face's fingerprint, for revision transfer. On load,
  * anything that doesn't fit the model (triangle on another face, id out of range) is dropped and
  * counted instead of refusing the whole file.
  */
@@ -19,9 +19,8 @@ import {
   type FacePaint,
   type MarkerData,
   type PieceTree,
-  type VersionChain,
 } from '@third-wheel/core';
-import { meshFormatOf, paintSamples, type StepModel } from '@third-wheel/geometry';
+import { paintSamples, type StepModel } from '@third-wheel/geometry';
 import type { Comment } from './comments.js';
 import type { Marker, MarkerEntity } from './markers.js';
 import { PaintRecord, type PaintLayer, type PaintState } from './paint.js';
@@ -45,18 +44,16 @@ export type SidecarModel = Pick<
 export interface SidecarInput {
   readonly fileName: string;
   readonly contentHash: string;
-  /** Geometry `meshHash` of the model (T8.1); left out in tests. */
+  /** Geometry `meshHash` of the model; left out in tests. */
   readonly meshHash?: string | undefined;
   readonly model: SidecarModel;
   readonly markers: readonly Marker[];
   readonly comments: readonly Comment[];
   readonly paint: PaintLayer;
-  /** User folders in the body list (T5.4); undefined = none. */
+  /** User folders in the body list; undefined = none. */
   readonly bodyTree?: BodyTreeData | undefined;
-  /** Other versions of the model (T8.6); undefined = none known. */
-  readonly versions?: VersionChain | undefined;
   /**
-   * Fingerprints for revision matching (T6.2): every body, and a function giving the held
+   * Fingerprints for revision matching: every body, and a function giving the held
    * entities' fingerprints (one call for all, so faces share one mesh pass). Left out in tests.
    */
   readonly fingerprints?: {
@@ -67,7 +64,7 @@ export interface SidecarInput {
   };
 }
 
-/** The app state as a sidecar document (T4.1 schema). */
+/** The app state as a sidecar document (the schema in @third-wheel/core). */
 export function toAnnotations(input: SidecarInput): Annotations {
   const { model, paint } = input;
   const ids = new Set(input.markers.map((m) => m.id));
@@ -111,7 +108,7 @@ export function toAnnotations(input: SidecarInput): Annotations {
   }
 
   const allEntities = input.markers.flatMap((m) => m.entities);
-  // Painted faces get fingerprints too (T8.2), in the same call (one mesh pass).
+  // Painted faces get fingerprints too, in the same call (one mesh pass).
   const paintedFaces = [
     ...new Set([...faces.values()].flatMap((byFace) => [...byFace.keys()])),
   ].sort((a, b) => a - b);
@@ -159,7 +156,7 @@ export function toAnnotations(input: SidecarInput): Annotations {
       contentHash: input.contentHash,
       ...(input.meshHash ? { meshHash: input.meshHash } : {}),
     },
-    // A mesh file's triangles are used as they are (T9.1): no tessellation settings.
+    // A mesh file's triangles are used as they are: no tessellation settings.
     ...(model.meshFormat ? {} : { tessellation: { ...model.tessellation } }),
     markers,
     comments: input.comments.map((c) => ({
@@ -193,9 +190,6 @@ export function toAnnotations(input: SidecarInput): Annotations {
     })),
     ...(input.bodyTree ? { bodyTree: input.bodyTree } : {}),
     ...(input.fingerprints ? { bodies: [...input.fingerprints.bodies] } : {}),
-    ...(input.versions?.earlier?.length || input.versions?.newer?.length
-      ? { versions: input.versions }
-      : {}),
   };
 }
 
@@ -219,30 +213,10 @@ export type SidecarCheck =
       readonly ok: false;
       readonly reason: 'other-version';
       readonly detail: string;
-      /** The annotations of the other version (T8.1: carried over or kept for T8.2). */
+      /** The annotations of the other version (carried over or kept for the revision transfer). */
       readonly doc: Annotations;
       readonly droppedFields: readonly string[];
     };
-
-/**
- * T8.6 / T15.1: a notes file with no markers for an earlier version that had none, so it can carry
- * a "newer version" line. Its format comes from the file name (an STL / 3MF earlier version must
- * not get `step` notes: opening it again would refuse them); a mesh gets no tessellation, as in
- * {@link toAnnotations}.
- */
-export function emptyNotesFor(
-  earlier: { readonly name: string; readonly contentHash: string },
-  tessellation: StepModel['tessellation'],
-): Annotations {
-  const mesh = meshFormatOf(earlier.name);
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    model: { fileName: earlier.name, format: mesh ?? 'step', contentHash: earlier.contentHash },
-    ...(mesh ? {} : { tessellation: { ...tessellation } }),
-    markers: [],
-    comments: [],
-  };
-}
 
 /** Parse a sidecar and check it belongs to exactly this file (hash) and our tessellation. */
 export function checkSidecar(text: string, contentHash: string, model: SidecarModel): SidecarCheck {
@@ -324,7 +298,7 @@ export function fromAnnotations(doc: Annotations, model: SidecarModel): LoadedAn
         paint.set(p.triangle, merge(paint.get(p.triangle), p.tree, m.id));
       }
     }
-    // Fingerprints are for revision matching (T8.2) only; the app keeps kind / id / seq.
+    // Fingerprints are for revision matching only; the app keeps kind / id / seq.
     const entities = m.entities
       .filter((e) => e.id < limits[e.kind])
       .map((e) => ({ kind: e.kind, id: e.id, seq: e.seq }));
@@ -340,7 +314,7 @@ export function fromAnnotations(doc: Annotations, model: SidecarModel): LoadedAn
   });
 
   const comments: Comment[] = doc.comments.map((c) => {
-    // A pre-T7.5 `note` becomes the thread's first (AI) reply.
+    // An old single `note` (before threads) becomes the thread's first (AI) reply.
     const replies = commentThread(c);
     return {
       id: c.id,

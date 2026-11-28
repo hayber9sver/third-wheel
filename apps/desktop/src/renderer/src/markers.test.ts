@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   cleanMarkerName,
   colorToHex,
+  counterIds,
   MARKER_COLORS,
   Markers,
   nextMarkerColor,
@@ -59,14 +60,14 @@ describe('helpers', () => {
 
 describe('Markers', () => {
   it('starts with one active "Marker 1"', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     expect(m.list().map((x) => x.name)).toEqual(['Marker 1']);
     expect(m.active()?.name).toBe('Marker 1');
     expect(m.active()?.color).toBe(MARKER_COLORS[0]?.hex);
   });
 
   it('add makes the new marker active and reports changes', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const onChange = vi.fn();
     m.onChange = onChange;
     const b = m.add();
@@ -76,7 +77,7 @@ describe('Markers', () => {
   });
 
   it('renames, recolours and hides; ignores no-ops and bad input', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const id = m.list()[0]?.id ?? '';
     const onChange = vi.fn();
     m.onChange = onChange;
@@ -96,21 +97,21 @@ describe('Markers', () => {
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 
-  it('add takes an optional name (T4.2)', () => {
-    const m = new Markers();
+  it('add takes an optional name', () => {
+    const m = new Markers(counterIds('m'));
     expect(m.add([], ' Comment 1 ').name).toBe('Comment 1');
     expect(m.add([], '   ').name).toBe('Marker 2');
   });
 
   it('ids stay unique after deletes', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const b = m.add();
     m.remove(b.id);
     expect(m.add().id).not.toBe(b.id);
   });
 
   it('removing the active marker activates the next, else the previous', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const [a] = m.list();
     const b = m.add();
     const c = m.add();
@@ -126,7 +127,7 @@ describe('Markers', () => {
   });
 
   it('removing an inactive marker keeps the active one', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const [a] = m.list();
     const b = m.add();
     m.remove(a?.id ?? '');
@@ -134,16 +135,23 @@ describe('Markers', () => {
   });
 
   it('reset goes back to a single Marker 1', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     m.add();
     m.rename(m.list()[0]?.id ?? '', 'Wall');
     m.reset();
     expect(m.list().map((x) => x.name)).toEqual(['Marker 1']);
-    expect(m.active()?.id).toBe('m1');
+    expect(m.active()?.id).toBe('m3'); // a new id: ids are never reused
   });
 
-  it('reports undoable edits (not hide / activate / reset) and restores them (T3.5)', () => {
+  it('new markers get random ids by default (unique in the project)', () => {
     const m = new Markers();
+    const a = m.add();
+    expect(a.id).toMatch(/^[a-z][a-z0-9]{9}$/);
+    expect(a.id).not.toBe(m.list()[0]?.id);
+  });
+
+  it('reports undoable edits (not hide / activate / reset) and restores them', () => {
+    const m = new Markers(counterIds('m'));
     const edits: MarkerEdit[] = [];
     m.onEdit = (e) => edits.push(e);
     const a = m.active();
@@ -163,7 +171,7 @@ describe('Markers', () => {
   });
 
   it('restore keeps visibility, ids and (unless asked) the active marker', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const edits: MarkerEdit[] = [];
     m.onEdit = (e) => edits.push(e);
     const a = m.active();
@@ -187,12 +195,12 @@ describe('Markers', () => {
   });
 });
 
-describe('marker entities (T3.7)', () => {
+describe('marker entities', () => {
   const face = (id: number) => ({ kind: 'face' as const, id });
   const edge = (id: number) => ({ kind: 'edge' as const, id });
 
   it('adds new entities once, in order, and removes them', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const id = m.active()?.id ?? '';
     expect(m.addEntities(id, [face(3), edge(1), face(3)])).toBe(2);
     expect(m.addEntities(id, [face(3), face(4)])).toBe(1);
@@ -208,7 +216,7 @@ describe('marker entities (T3.7)', () => {
   });
 
   it('new marker with entities is one edit; entity edits undo via restore', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const edits: MarkerEdit[] = [];
     m.onEdit = (e) => edits.push(e);
     const b = m.add([face(1), face(1), edge(2)]);
@@ -226,7 +234,7 @@ describe('marker entities (T3.7)', () => {
   });
 
   it('holding lists markers that contain any of the items', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const a = m.active()?.id ?? '';
     const b = m.add([edge(2)]).id;
     m.addEntities(a, [face(1)]);
@@ -236,7 +244,7 @@ describe('marker entities (T3.7)', () => {
   });
 
   it('colours an entity by the active marker, else the one it was added to last', () => {
-    const m = new Markers();
+    const m = new Markers(counterIds('m'));
     const a = m.active()?.id ?? '';
     const b = m.add().id; // b active
     m.addEntities(a, [face(1), face(2)]);
@@ -255,3 +263,66 @@ describe('marker entities (T3.7)', () => {
     expect(shownEntities(m.list(), b)).toEqual([]);
   });
 });
+
+describe('unique names in the project', () => {
+  const ids = (): (() => string) => counterIds('m');
+
+  it('refuses a name another marker here uses (case and spaces ignored)', () => {
+    const m = new Markers(ids());
+    const a = must(m.list()[0]).id; // Marker 1
+    const b = m.add().id; // Marker 2
+    expect(m.takenBy(' marker  1 ', b)).toBe('Marker 1');
+    expect(m.rename(b, 'marker 1')).toBe(false);
+    expect(m.get(b)?.name).toBe('Marker 2');
+    // Its own name in another case is free.
+    expect(m.takenBy('MARKER 1', a)).toBeUndefined();
+    expect(m.rename(a, 'MARKER 1')).toBe(true);
+  });
+
+  it("counts the project's other markers, but not ones the list holds now", () => {
+    const m = new Markers(ids());
+    m.setOthers([
+      { id: 'x1', name: 'Hole' },
+      { id: 'x2', name: 'Marker 3' },
+    ]);
+    // The untouched default "Marker 1" is free: kept.
+    expect(m.list().map((k) => k.name)).toEqual(['Marker 1']);
+    const a = must(m.list()[0]).id;
+    expect(m.rename(a, 'hole')).toBe(false);
+    expect(m.add().name).toBe('Marker 4'); // above the highest in the project
+    expect(m.add([], 'Hole').name).toBe('Hole (2)');
+    expect(m.names()).toEqual(['Marker 1', 'Marker 4', 'Hole (2)', 'Hole', 'Marker 3']);
+    // x1 came into the list (e.g. moved from the earlier version): its own name, held here.
+    m.load([{ id: 'x1', name: 'Hole', color: '#ff8a1f', visible: true, entities: [] }]);
+    expect(m.rename('x1', 'Slot')).toBe(true);
+    expect(m.takenBy('Hole')).toBeUndefined();
+  });
+
+  it('a marker deleted here keeps its name taken while the project still has it (another version)', () => {
+    const m = new Markers(ids());
+    const held = { id: 'x2', name: 'Marker 2', color: '#2fbf71', visible: true, entities: [] };
+    m.load([{ id: 'x1', name: 'Marker 1', color: '#ff8a1f', visible: true, entities: [] }, held]);
+    m.setOthers([
+      { id: 'x1', name: 'Marker 1' },
+      { id: 'x2', name: 'Marker 2' },
+    ]);
+    m.remove('x2');
+    expect(m.takenBy('marker 2')).toBe('Marker 2');
+    expect(m.add().name).toBe('Marker 3');
+  });
+
+  it("renames the fresh default marker when the project uses its name; reset forgets the project's", () => {
+    const m = new Markers(ids());
+    m.setOthers([{ id: 'x1', name: 'Marker 1' }]);
+    expect(m.list().map((k) => k.name)).toEqual(['Marker 2']);
+    m.reset(true);
+    expect(m.list().map((k) => k.name)).toEqual(['Marker 2']);
+    m.reset();
+    expect(m.list().map((k) => k.name)).toEqual(['Marker 1']);
+  });
+});
+
+function must<T>(v: T | undefined): T {
+  if (v === undefined) throw new Error('missing');
+  return v;
+}

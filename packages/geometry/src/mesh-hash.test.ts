@@ -5,7 +5,7 @@ import { meshHash } from './mesh-hash.js';
 import type { StepModel } from './model.js';
 import { importStep } from './step-import.js';
 
-// Revision test set (T8.0): 00 differs from base only in ids inside the file.
+// Revision test set: 00 differs from base only in ids inside the file.
 const dir = new URL('../test-data/revisions/', import.meta.url);
 const models = new Map<string, StepModel>();
 

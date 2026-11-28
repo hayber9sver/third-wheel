@@ -1,21 +1,50 @@
 import { describe, expect, it } from 'vitest';
+import type { AgentDesc } from './agent-desc.js';
+import { agentById, ALL_AGENTS, visibleAgents } from './agent-list.js';
 import {
-  agentPanel,
-  agentResultText,
-  AGENTS,
-  codexToml,
-  cursorInstallUrl,
-  geminiAddArgs,
-  geminiAddCommand,
-  isAgentId,
-  mcpServersJson,
+  agentPanel as panelOf,
+  agentResultText as resultOf,
+  commandArgs,
+  commandText,
+  installUrl,
+  jsonSnippet,
+  settingsText,
   tomlString,
-  vscodeInstallUrl,
-  vscodeJson,
-  withCodexServer,
-  type OtherAgentId,
+  withTomlEntry,
 } from './agents.js';
 import { MCP_RUN_AS_NODE, type McpSetup } from './ai-status.js';
+
+function agent(id: string): AgentDesc {
+  const a = agentById(id);
+  if (!a) throw new Error(`no ${id}.json`);
+  return a;
+}
+function need<T>(v: T | undefined): T {
+  if (v === undefined) throw new Error('missing in the description');
+  return v;
+}
+
+// Before the description files these were hand-written builders; the expectations below are the
+// ones they had, now met by the description files run through the engines.
+type OtherAgentId = 'codex' | 'gemini' | 'copilot' | 'cursor' | 'vscode' | 'other';
+const codexToml = (s: McpSetup): string => settingsText(need(agent('codex').settings), s);
+const withCodexServer = (existing: string, block: string): string | undefined =>
+  withTomlEntry(existing, ['mcp_servers', 'third-wheel'], block);
+const geminiAddArgs = (s: McpSetup): string[] =>
+  commandArgs(need(agent('gemini').command), s, 'user');
+const geminiAddCommand = (s: McpSetup): string =>
+  commandText(need(agent('gemini').command), s, 'user');
+const mcpServersJson = (s: McpSetup): string => need(jsonSnippet(agent('cursor'), s));
+const vscodeJson = (s: McpSetup): string => need(jsonSnippet(agent('vscode'), s));
+const cursorInstallUrl = (s: McpSetup): string => installUrl(need(agent('cursor').link), s);
+const vscodeInstallUrl = (s: McpSetup): string => installUrl(need(agent('vscode').link), s);
+const agentPanel = (
+  id: OtherAgentId,
+  s: McpSetup,
+  found: string | null | undefined,
+): ReturnType<typeof panelOf> => panelOf(agent(id), s, found);
+const agentResultText = (id: OtherAgentId, r: Parameters<typeof resultOf>[1]): string =>
+  resultOf(agent(id), r);
 
 const MAC_APP = '/Applications/Third Wheel.app/Contents';
 const mac: McpSetup = {
@@ -72,19 +101,25 @@ function readToml(text: string): Record<string, Record<string, unknown>> {
   return out;
 }
 
-describe('agent list (T14.2)', () => {
-  it('Claude Code first, then Codex, Gemini CLI, Cursor, VS Code, Other', () => {
-    expect(AGENTS.map((a) => a.label)).toEqual([
+describe('agent list', () => {
+  it('Claude Code first, then Codex, Gemini CLI, Copilot CLI, Cursor, VS Code, Other', () => {
+    expect(ALL_AGENTS.map((a) => a.label)).toEqual([
       'Claude Code',
       'Codex',
       'Gemini CLI',
+      'Copilot CLI',
       'Cursor',
       'VS Code',
       'Other',
     ]);
-    expect(isAgentId('codex')).toBe(true);
-    expect(isAgentId('chatgpt')).toBe(false);
-    expect(isAgentId(null)).toBe(false);
+    expect(agentById('codex')).toBeDefined();
+    expect(agentById('chatgpt')).toBeUndefined();
+    expect(agentById(null)).toBeUndefined();
+  });
+
+  it('only agents tried with the real program are shown; all of them with THIRD_WHEEL_SHOW_UNTESTED', () => {
+    expect(visibleAgents(false).map((a) => a.id)).toEqual(['claude', 'other']);
+    expect(visibleAgents(true)).toEqual(ALL_AGENTS);
   });
 });
 
@@ -96,7 +131,7 @@ describe('Codex config.toml', () => {
         '[mcp_servers.third-wheel]',
         `command = "${MAC_APP}/MacOS/Third Wheel"`,
         `args = ["${MAC_APP}/Resources/mcp/third-wheel-mcp.js"]`,
-        'tool_timeout_sec = 600',
+        'tool_timeout_sec = 1800',
         '',
         '[mcp_servers.third-wheel.env]',
         'ELECTRON_RUN_AS_NODE = "1"',
@@ -111,7 +146,7 @@ describe('Codex config.toml', () => {
     expect(readToml(toml)['mcp_servers.third-wheel']).toEqual({
       command: winPlain.command,
       args: [winPlain.serverPath],
-      tool_timeout_sec: 600,
+      tool_timeout_sec: 1800,
     });
   });
 
@@ -217,13 +252,15 @@ describe('withCodexServer (one-click Codex writes config.toml)', () => {
 describe('Gemini CLI', () => {
   it('macOS: -s user, -e before the name, quoted paths', () => {
     expect(geminiAddCommand(mac)).toBe(
-      `gemini mcp add -s user -e ELECTRON_RUN_AS_NODE=1 third-wheel "${mac.command}" "${mac.serverPath}"`,
+      `gemini mcp add -s user --timeout 1800000 -e ELECTRON_RUN_AS_NODE=1 third-wheel "${mac.command}" "${mac.serverPath}"`,
     );
     expect(geminiAddArgs(mac)).toEqual([
       'mcp',
       'add',
       '-s',
       'user',
+      '--timeout',
+      '1800000',
       '-e',
       'ELECTRON_RUN_AS_NODE=1',
       'third-wheel',
@@ -234,11 +271,24 @@ describe('Gemini CLI', () => {
 
   it('Windows: plain \\ in double quotes; dev: node', () => {
     expect(geminiAddCommand(winPlain)).toBe(
-      `gemini mcp add -s user -e ELECTRON_RUN_AS_NODE=1 third-wheel "${winPlain.command}" "${winPlain.serverPath}"`,
+      `gemini mcp add -s user --timeout 1800000 -e ELECTRON_RUN_AS_NODE=1 third-wheel "${winPlain.command}" "${winPlain.serverPath}"`,
     );
     expect(geminiAddCommand(dev)).toBe(
-      `gemini mcp add -s user third-wheel node "${dev.serverPath}"`,
+      `gemini mcp add -s user --timeout 1800000 third-wheel node "${dev.serverPath}"`,
     );
+  });
+});
+
+describe('Copilot CLI', () => {
+  it('name first, --env per variable, -- before the command; dev: node', () => {
+    const text = (s: McpSetup): string => commandText(need(agent('copilot').command), s, 'user');
+    expect(text(mac)).toBe(
+      `copilot mcp add third-wheel --timeout 1800000 --env ELECTRON_RUN_AS_NODE=1 -- "${mac.command}" "${mac.serverPath}"`,
+    );
+    expect(text(dev)).toBe(
+      `copilot mcp add third-wheel --timeout 1800000 -- node "${dev.serverPath}"`,
+    );
+    expect(agentPanel('copilot', mac, null).text).toBe(text(mac));
   });
 });
 
@@ -323,7 +373,7 @@ describe('agentPanel', () => {
     );
     expect(agentPanel('cursor', mac, null).button).toBe('Add to Cursor');
     expect(agentPanel('vscode', mac, null).button).toBe('Install in VS Code');
-    expect(agentPanel('gemini', mac, '/x/gemini').button).toBe('Connect to Gemini CLI');
+    expect(agentPanel('gemini', mac, '/x/gemini').button).toBe('Add to Gemini CLI');
     const missing = agentPanel('gemini', mac, null);
     expect(missing.button).toBeUndefined();
     expect(missing.buttonHint).toContain('wasn’t found');
@@ -335,7 +385,7 @@ describe('agentPanel', () => {
     expect(agentResultText('codex', { ok: true, path: '/u/.codex/config.toml' })).toContain(
       'Added ✓ to /u/.codex/config.toml',
     );
-    expect(agentResultText('gemini', { ok: true, path: '/g' })).toContain('Connected ✓');
+    expect(agentResultText('gemini', { ok: true, path: '/g' })).toContain('Added ✓');
     expect(agentResultText('cursor', { ok: false, reason: 'not-found' })).toContain(
       'Cursor didn’t open',
     );

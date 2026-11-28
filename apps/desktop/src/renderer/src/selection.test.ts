@@ -6,7 +6,7 @@ const edge1: SelectionItem = { kind: 'edge', id: 1 };
 const body0: SelectionItem = { kind: 'body', id: 0 };
 
 describe('Selection', () => {
-  it('toggle adds, toggling again removes; order is kept (multi-select by default, T2.6)', () => {
+  it('toggle adds, toggling again removes; order is kept (multi-select by default)', () => {
     const s = new Selection();
     s.toggle(face3);
     s.toggle(edge1);

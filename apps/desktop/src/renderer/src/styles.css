@@ -14,7 +14,7 @@
   --warn: #9a5b00;
   --ok: #1a7f37;
   --btn-hover: #eceef2;
-  /* AI look (T7.3): rainbow, like Siri / Gemini / Copilot; purple can be a marker colour. */
+  /* AI look: rainbow, like Siri / Gemini / Copilot; purple can be a marker colour. */
   --ai-rainbow: linear-gradient(
     120deg,
     #ff5f6d,
@@ -36,7 +36,9 @@
   );
   --toolbar-h: 44px;
   --statusbar-h: 30px;
-  --left-w: 240px;
+  --left-w: 340px;
+  /* How much of the view's left side the floating panel covers (0 when folded). */
+  --left-cover: 0px;
   --right-w: 300px;
   font-family:
     system-ui,
@@ -53,7 +55,7 @@
   --border: #363a41;
   --text: #e3e5e8;
   --text-muted: #8d939d;
-  /* T12.7: brighter accent + stronger row fill, the selected body row was too faint.
+  /* Brighter accent + stronger row fill, the selected body row was too faint.
      Dark text on accent buttons: white on #5b9bff is 2.8:1, #1b1d21 is 6:1. */
   --accent: #5b9bff;
   --row-selected: 65%;
@@ -86,11 +88,12 @@ html body {
 .app {
   display: grid;
   grid-template-rows: var(--toolbar-h) minmax(0, 1fr) var(--statusbar-h);
-  grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w);
+  /* The left panel floats over the viewport cell (left-panel.ts), so the 3D view runs to the left edge. */
+  grid-template-columns: minmax(0, 1fr) var(--right-w);
   grid-template-areas:
-    'toolbar toolbar toolbar'
-    'left viewport right'
-    'status status status';
+    'toolbar toolbar'
+    'viewport right'
+    'status status';
   height: 100vh;
 }
 
@@ -107,9 +110,6 @@ html body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .brand-icon {
@@ -119,7 +119,7 @@ html body {
 }
 
 /*
- * Toolbar fit (T10.1, toolbar-fit.ts): one row, never wrapped; fit-1 … fit-3 make it more
+ * Toolbar fit (toolbar-fit.ts): one row, never wrapped; fit-1 … fit-3 make it more
  * compact step by step so the widest tool's options fit in the window.
  */
 .toolbar > * {
@@ -154,7 +154,8 @@ html body {
   stroke-linejoin: round;
 }
 
-#versions-menu .menu-caret {
+#versions-menu .menu-caret,
+#parts-menu .menu-caret {
   margin-left: -2px;
 }
 
@@ -165,28 +166,38 @@ html body {
   text-overflow: ellipsis;
 }
 
-.fit-1 .brand-name {
+/* Tools and Pick filters go icon-only first: their icons say what they are. */
+.fit-1 .tool .tb-label,
+.fit-1 .filter .tb-label {
   display: none;
 }
 
-.fit-2 .tool .tb-label,
-.fit-2 .filter .tb-label,
-.fit-2 #open-model .tb-label,
-.fit-2 #library-btn .tb-label,
-.fit-2 #versions-menu .tb-label {
-  display: none;
-}
-
-.fit-2 .tool,
-.fit-2 .filter,
-.fit-2 #library-btn,
-.fit-2 #open-model {
+.fit-1 .tool,
+.fit-1 .filter {
   width: 32px;
   justify-content: center;
   padding: 0;
 }
 
-.fit-2 #versions-menu {
+/* Then the file buttons: Open folder, Add file, Parts ▾, Versions ▾. */
+.fit-2 #open-model .tb-label,
+.fit-2 #versions-menu .tb-label,
+.fit-2 #parts-menu .tb-label,
+.fit-2 #library-btn .tb-label,
+.fit-2 #add-file .tb-label {
+  display: none;
+}
+
+.fit-2 #open-model,
+.fit-2 #library-btn,
+.fit-2 #add-file {
+  width: 32px;
+  justify-content: center;
+  padding: 0;
+}
+
+.fit-2 #versions-menu,
+.fit-2 #parts-menu {
   padding: 0 6px;
 }
 
@@ -230,6 +241,7 @@ html body {
   justify-content: center;
   gap: 8px;
   padding: 16px;
+  padding-left: calc(16px + var(--left-cover));
   text-align: center;
   color: var(--text);
   pointer-events: none;
@@ -263,6 +275,10 @@ html body {
   margin-bottom: 8px;
 }
 
+.empty-logo[hidden] {
+  display: none;
+}
+
 .empty-title {
   font-size: 20px;
   font-weight: 600;
@@ -274,15 +290,100 @@ html body {
   color: var(--text-muted);
 }
 
-.empty-view .btn.primary {
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   margin: 8px 0;
+}
+
+.empty-actions .btn[hidden] {
+  display: none;
+}
+
+.empty-folder {
+  max-width: 440px;
+  /* Right under the project name. */
+  margin-top: -6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Recent projects on the start page: name, folder, last opened. */
+.empty-recent {
+  /* Never wider than the card (the free part of the view is narrow in a small window). */
+  width: min(440px, 100%);
+  margin-top: 4px;
+  text-align: left;
+}
+
+.empty-recent[hidden] {
+  display: none;
+}
+
+.empty-recent-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.empty-recent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty-recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.empty-recent-row:hover,
+.empty-recent-row:focus-visible {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.empty-recent-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-recent-when,
+.empty-recent-folder {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.empty-recent-folder {
+  grid-column: 1 / -1;
+  /* A long folder must not widen the columns (it spans both): cut it at the row's width. */
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-hint {
   font-size: 12px;
 }
 
-/* T13.3: small grey version line at the bottom of the start card. */
+/* Small grey version line at the bottom of the start card. */
 .empty-card > .empty-version {
   margin-top: 8px;
   font-size: 11px;
@@ -317,7 +418,7 @@ html body {
   min-width: 0;
 }
 
-/* Status-bar item: coloured dot + label (T7.6) — AI status and the save indicator. */
+/* Status-bar item: coloured dot + label — AI status and the save indicator. */
 .status-item {
   display: inline-flex;
   align-items: center;
@@ -356,6 +457,12 @@ html body {
 
 .status-item[data-dot='error'] {
   color: var(--remove);
+}
+
+/* Read-only project: red dot (nothing is saved), normal text (chosen, not a failure). */
+.status-item[data-dot='readonly'] .status-dot {
+  background: var(--remove);
+  opacity: 1;
 }
 
 .status-button {
@@ -397,7 +504,7 @@ html body {
   text-decoration: underline;
 }
 
-/* "Connect an AI agent" pop-up (T7.6). */
+/* "Set up your AI agent" pop-up. */
 .alert-dialog.connect-dialog {
   width: min(600px, calc(100% - 32px));
 }
@@ -435,11 +542,203 @@ html body {
   color: var(--ok);
 }
 
-.connect-result[data-ok='false'] {
+.connect-result[data-ok='false'],
+.connect-result[data-ok='warn'] {
   color: var(--warn);
 }
 
-/* Agent choice in the Connect pop-up (T14.2): radios that look like tabs. */
+/* "This folder only": the folder Connect runs in. */
+.connect-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.connect-folder code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.connect-scope {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ⓘ: the scope's explanation as a tooltip, not a paragraph. */
+.connect-info {
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.connect-check {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.connect-check-label::before {
+  content: '●';
+  margin-right: 6px;
+  color: var(--text-muted);
+}
+
+.connect-check-label[data-state='ok']::before {
+  color: var(--ok);
+}
+
+.connect-check-label[data-state='warn'] {
+  color: var(--warn);
+}
+
+.connect-check-label[data-state='warn']::before {
+  content: '▲';
+  color: var(--warn);
+}
+
+.connect-why {
+  flex: 1;
+  min-width: 0;
+}
+
+.connect-why p {
+  margin: 4px 0 0;
+  color: var(--warn);
+  overflow-wrap: anywhere;
+}
+
+.connect-dialog summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.connect-manual {
+  margin-top: 14px;
+}
+
+.connect-details {
+  margin: 0 0 8px;
+}
+
+.connect-details p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.connect-replace {
+  color: var(--warn);
+}
+
+/* Shown before Connect runs anything: program, folder, commands. */
+.connect-confirm {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.connect-confirm p {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.connect-confirm pre {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.connect-confirm-text {
+  white-space: pre-line;
+}
+
+.connect-confirm-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.connect-shell .connect-hint {
+  margin: 4px 0 0;
+}
+
+/* Remove buttons for entries in the way, under "Why?". */
+.connect-fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* "Chat in Third Wheel": start command, start phrase, live status, pre-allow rules. */
+.connect-chat {
+  margin-top: 16px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.connect-chat-steps {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.connect-chat-steps li {
+  margin: 6px 0;
+}
+
+.connect-chat-steps code {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.connect-chat-status::before {
+  content: '●';
+  margin-right: 6px;
+  color: var(--text-muted);
+}
+
+.connect-chat-status[data-state='connected']::before {
+  color: var(--accent);
+}
+
+.connect-chat-status[data-state='listening']::before {
+  color: var(--ok);
+}
+
+.connect-chat-status[data-state='stopped'],
+.connect-chat-warn {
+  color: var(--warn);
+}
+
+.connect-chat-status[data-state='stopped']::before {
+  color: var(--warn);
+}
+
+.connect-allow-cad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.connect-allow-cad input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+.connect-allow-preview {
+  margin: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* Agent choice in the Connect pop-up: radios that look like tabs. */
 .agent-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -531,7 +830,7 @@ html body {
   border-left: 1px solid var(--border);
 }
 
-/* Options of the active tool (Smart fill, T3.4), shown only while it is active. */
+/* Options of the active tool (Smart fill), shown only while it is active. */
 .options-group {
   align-items: center;
   margin-left: 8px;
@@ -544,7 +843,7 @@ html body {
   display: none;
 }
 
-/* Toolbar dropdown buttons (T3.8): "Add to marker ▾", the marker Brush / Smart fill paint with. */
+/* Toolbar dropdown buttons: "Add to marker ▾", the marker Brush / Smart fill paint with. */
 .menu-btn {
   display: flex;
   align-items: center;
@@ -702,8 +1001,7 @@ html body {
 }
 
 .panel-left {
-  grid-area: left;
-  border-right: 1px solid var(--border);
+  grid-area: viewport;
 }
 
 .panel-right {
@@ -730,7 +1028,7 @@ html body {
   color: var(--text-muted);
 }
 
-/* Collapsible sections (T2.5): the h2 holds a toggle button; collapsed = heading only. */
+/* Collapsible sections: the h2 holds a toggle button; collapsed = heading only. */
 .section-toggle {
   display: inline-flex;
   align-items: center;
@@ -778,7 +1076,7 @@ html body {
   display: none;
 }
 
-/* Info section (T2.5) */
+/* Info section */
 .info-block + .info-block {
   margin-top: 12px;
 }
@@ -812,6 +1110,8 @@ html body {
   grid-area: viewport;
   position: relative;
   overflow: hidden;
+  /* Own stacking context: everything in the view stays under the floating left panel. */
+  z-index: 0;
 }
 
 .viewport canvas {
@@ -820,7 +1120,7 @@ html body {
   inset: 0;
 }
 
-/* Box select rectangle (T2.4, T2.6): blue = add (left→right), red = remove (right→left);
+/* Box select rectangle: blue = add (left→right), red = remove (right→left);
    solid = fully inside, dashed = crossing (Alt). The corner label says the same in words. */
 .box-select-rect {
   --box-color: var(--accent);
@@ -998,7 +1298,7 @@ html body {
   background: var(--btn-hover);
 }
 
-/* Selected body (T2.2): accent tint, stays visible on hover. */
+/* Selected body: accent tint, stays visible on hover. */
 .body-list li.selected {
   background: color-mix(in srgb, var(--accent) var(--row-selected), transparent);
   /* Accent bar on the left: visible however faint the tint looks. */
@@ -1186,7 +1486,7 @@ html body {
   text-overflow: ellipsis;
 }
 
-/* User folders (T5.4): folder icon, inline rename, drop targets while dragging rows. */
+/* User folders: folder icon, inline rename, drop targets while dragging rows. */
 .folder-row.renaming {
   cursor: default;
 }
@@ -1217,16 +1517,17 @@ html body {
   font-weight: 600;
 }
 
-/* Model / selection / hover readout, bottom left of the 3D view (T2.7). */
-/* Messages at the top centre of the view: AI banner (T7.3) above the notice bar (T5.1). */
+/* Model / selection / hover readout, bottom left of the 3D view. */
+/* Messages at the top centre of the view: AI banner above the notice bar. */
 .view-messages {
   position: absolute;
   z-index: 3;
   top: 12px;
-  left: 50%;
+  /* Centred in the part of the view the left panel leaves free. */
+  left: calc(50% + var(--left-cover) / 2);
   transform: translateX(-50%);
   width: max-content;
-  max-width: min(640px, calc(100% - 24px));
+  max-width: min(640px, calc(100% - 24px - var(--left-cover)));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1254,7 +1555,7 @@ html body {
   line-height: 1.4;
 }
 
-/* Compare with the previous version (T8.3): colours match revision-overlay.ts COMPARE_COLORS. */
+/* Compare with the previous version: colours match revision-overlay.ts COMPARE_COLORS. */
 .compare-legend {
   display: flex;
   align-items: center;
@@ -1291,13 +1592,7 @@ html body {
   background: rgb(47 191 113 / 60%);
 }
 
-#compare-versions[aria-pressed='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-/* AI message banner (T7.3): the AI asks for a review; rainbow border = AI. */
+/* AI message banner: the AI asks for a review; rainbow border = AI. */
 .ai-banner {
   max-width: 100%;
   display: flex;
@@ -1336,7 +1631,7 @@ html body {
   gap: 4px;
 }
 
-/* Models of a multi-model review (T7.4): the shown one marked, the others open on click. */
+/* Models of a multi-model review: the shown one marked, the others open on click. */
 .ai-banner-models {
   display: flex;
   flex-wrap: wrap;
@@ -1395,7 +1690,7 @@ html body {
   font-weight: 600;
 }
 
-/* Toolbar "Send to AI" (T7.3): rainbow ring while the AI waits for the user's review. */
+/* Toolbar "Send review": rainbow ring while the AI waits for the user's review. */
 .send-ai {
   display: inline-flex;
   align-items: center;
@@ -1432,7 +1727,7 @@ html body {
   display: none;
 }
 
-/* "About Third Wheel" pop-up (T13.1). */
+/* "About Third Wheel" pop-up. */
 .about-dialog {
   width: min(400px, calc(100% - 32px));
 }
@@ -1491,7 +1786,49 @@ html body {
   color: var(--accent);
 }
 
-/* Pop-up for annotation data at risk (T5.2): backup made, fields dropped. */
+/* Help ▸ Send feedback… pop-up. */
+.feedback-dialog {
+  width: min(480px, calc(100% - 32px));
+}
+
+.feedback-setup {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 4px 0 6px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.alert-body .feedback-note {
+  color: var(--text-muted);
+}
+
+.feedback-places {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 4px 0 8px;
+}
+
+.feedback-places .btn {
+  white-space: nowrap;
+}
+
+.feedback-places span {
+  color: var(--text-muted);
+}
+
+.alert-body .feedback-status:empty {
+  display: none;
+}
+
+.feedback-dialog .btn:not(.primary) {
+  border-color: var(--border);
+}
+
+/* Pop-up for annotation data at risk: backup made, fields dropped. */
 .alert-dialog {
   width: min(440px, calc(100% - 32px));
   padding: 14px 16px 12px;
@@ -1521,9 +1858,23 @@ html body {
 
 .alert-buttons {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin: 4px 0 0;
+}
+
+/* A button never breaks inside its label; a row that doesn't fit moves the button down whole. */
+.alert-buttons .btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Three answers (e.g. whose markers a new version uses): room for them on one line. */
+.alert-dialog:has(#choice-third:not([hidden])) {
+  width: min(600px, calc(100% - 32px));
 }
 
 .notice.mesh-banner {
@@ -1552,9 +1903,9 @@ html body {
 .view-info {
   position: absolute;
   z-index: 1;
-  left: 12px;
+  left: calc(12px + var(--left-cover));
   bottom: 12px;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 24px - var(--left-cover));
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1581,7 +1932,7 @@ html body {
   color: var(--text-muted);
 }
 
-/* Shift held with Brush / Smart fill (T10.1): the readout says it erases, red like the circle. */
+/* Shift held with Brush / Smart fill: the readout says it erases, red like the circle. */
 .view-info .view-info-muted.erasing {
   color: var(--remove);
   font-weight: 600;
@@ -1596,14 +1947,14 @@ html body {
   font-weight: 600;
 }
 
-/* Cheat sheet ("?" button / ? key, T2.7): floats over the bottom right of the 3D view.
-   T10.3: six groups in two columns when the view is wide enough; extras folded under "More". */
+/* Cheat sheet ("?" button / ? key): floats over the bottom right of the 3D view.
+   Six groups in two columns when the view is wide enough; extras folded under "More". */
 .help-sheet {
   position: absolute;
   z-index: 2;
   right: 12px;
   bottom: 12px;
-  width: min(760px, calc(100% - 24px));
+  width: min(760px, calc(100% - 24px - var(--left-cover)));
   max-height: calc(100% - 24px);
   overflow-y: auto;
   padding: 10px 14px 12px;
@@ -1701,7 +2052,7 @@ html body {
   color: var(--text);
 }
 
-/* "Exact values" button under the Info blocks (T2.8). */
+/* "Exact values" button under the Info blocks. */
 .info-exact {
   margin-top: 12px;
 }
@@ -1727,7 +2078,7 @@ html body {
   display: none;
 }
 
-/* Markers (T3.2): [eye] [swatch] [name] [×]; the active row is tinted, its name bold. */
+/* Markers: [eye] [swatch] [name] [×]; the active row is tinted, its name bold. */
 .panel-section[data-section='markers'] {
   position: relative;
 }
@@ -1823,12 +2174,25 @@ html body {
   font-weight: 600;
 }
 
-.marker-hidden .marker-name {
+.marker-hidden .marker-name,
+.marker-bare .marker-name {
   color: var(--text-muted);
+}
+
+/* No paint on the shown version (a shared comment lists it): a faded swatch. */
+.marker-bare .marker-swatch::before {
+  opacity: 0.45;
 }
 
 .marker-hidden .marker-swatch::before {
   opacity: 0.35;
+}
+
+.marker-resolved-tag {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 /* Delete shows on hover / focus only, so the list stays calm. */
@@ -1852,6 +2216,18 @@ html body {
   background: var(--panel);
   font: inherit;
   color: var(--text);
+}
+
+.marker-name-input[aria-invalid='true'] {
+  border-color: var(--remove);
+  outline-color: var(--remove);
+}
+
+.marker-name-error {
+  padding: 2px 8px 4px 58px;
+  font-size: 12px;
+  color: var(--remove);
+  list-style: none;
 }
 
 .color-menu {
@@ -1915,7 +2291,7 @@ html body {
   pointer-events: none;
 }
 
-/* Right-click menu (T3.7). */
+/* Right-click menu. */
 .context-menu {
   position: fixed;
   z-index: 50;
@@ -1995,7 +2371,7 @@ html body {
   background: var(--border);
 }
 
-/* Marker entities (T3.7): "+ Selection" and the item count on a row, entity list under it. */
+/* Marker entities: "+ Selection" and the item count on a row, entity list under it. */
 .marker-row-btn {
   flex: none;
   padding: 2px 6px;
@@ -2028,7 +2404,7 @@ html body {
   color: var(--accent);
 }
 
-/* Revision transfer (T8.2): "⚠ Changed" / "✕ Lost" / "? Check"; hover shows "✓ Looks right". */
+/* Revision transfer: "⚠ Changed" / "✕ Lost" / "? Check"; hover shows "✓ Looks right". */
 .marker-transfer {
   color: var(--warn);
   font-weight: 600;
@@ -2104,7 +2480,7 @@ html body {
   height: 12px;
 }
 
-/* Comments (T4.2): writing box, cards with marker chips, "here" bar, Show resolved. */
+/* Comments: writing box, cards with marker chips, "here" bar, Show resolved. */
 .comment-box {
   display: flex;
   flex-direction: column;
@@ -2153,7 +2529,7 @@ html body {
   gap: 4px;
 }
 
-/* Markers ▾ (and ↔ Model ▾, T7.4) left; Cancel + Post stay together on the right, wrapping as one. */
+/* Markers ▾ (and ↔ Part ▾) left; Cancel + Post stay together on the right, wrapping as one. */
 .comment-box-post {
   display: flex;
   gap: 4px;
@@ -2207,7 +2583,7 @@ html body {
   background: var(--swatch, transparent);
 }
 
-/* Linked model file (T7.4): no colour dot; on a card a button that opens the model. */
+/* Linked model file: no colour dot; on a card a button that opens the model. */
 .comment-chip.linked {
   border: 1px solid var(--border);
   background: none;
@@ -2338,6 +2714,15 @@ button.comment-chip.linked:hover {
   color: var(--text);
 }
 
+/* The agent replied under this comment and the user hasn't highlighted it yet. */
+.comment-unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
 .comment-author {
   padding: 0 5px;
   border-radius: 3px;
@@ -2353,7 +2738,7 @@ button.comment-chip.linked:hover {
   font-weight: 600;
 }
 
-/* T8.3: the AI closed it, the user hasn't confirmed: amber, like a flagged marker. */
+/* The AI closed it, the user hasn't confirmed: amber, like a flagged marker. */
 .comment-confirm-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2425,9 +2810,51 @@ button.comment-chip.linked:hover {
   display: none;
 }
 
-/* Comment pins over the 3D view (T4.3): a speech-bubble pin whose sharp corner (bottom left)
+/* Dimension of the selection / highlighted comment, drawn on top in the selection blue. */
+.dimensions {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dimension-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  /* A thin outline in the panel colour keeps the line readable on a blue (selected) face. */
+  filter: drop-shadow(0 0 1px var(--panel)) drop-shadow(0 0 1px var(--panel));
+}
+
+.dimension-lines line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.dimension-lines polygon {
+  fill: var(--accent);
+}
+
+.dimension-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Comment pins over the 3D view: a speech-bubble pin whose sharp corner (bottom left)
    touches the anchor. Look follows the comment cards: panel colour + number; highlighted
-   = accent blue and larger; AI = rainbow outline (T7.3); closed dimmed; behind the model faded. */
+   = accent blue and larger; AI = rainbow outline; closed dimmed; behind the model faded. */
 .comment-pins {
   position: absolute;
   inset: 0;
@@ -2472,7 +2899,7 @@ button.comment-chip.linked:hover {
   --pin-border: var(--accent);
 }
 
-/* AI pin: rainbow outline (T7.3), kept when highlighted, faded or dimmed. */
+/* AI pin: rainbow outline, kept when highlighted, faded or dimmed. */
 .comment-pin.ai {
   border: 2px solid transparent;
   background:
@@ -2508,7 +2935,7 @@ button.comment-chip.linked:hover {
   opacity: 0.6;
 }
 
-/* Replies (T7.5): the thread under a comment card, and the reply box on the highlighted card. */
+/* Replies: the thread under a comment card, and the reply box on the highlighted card. */
 .comment-replies {
   display: flex;
   flex-direction: column;
@@ -2565,6 +2992,658 @@ button.comment-chip.linked:hover {
 .reply-box.has-text .reply-buttons,
 .reply-box.editing .reply-buttons {
   display: flex;
+}
+
+/* --- Floating left panel: Bodies | Chat (left-panel.ts, chat-panel.ts) ----------------------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.panel.panel-left {
+  position: relative;
+  z-index: 10;
+  justify-self: start;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  width: var(--left-w);
+  min-width: 0;
+  margin: 8px;
+  overflow: hidden;
+  /* See-through: the model shows between the bubbles. */
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  backdrop-filter: blur(3px);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 14%);
+}
+
+.panel.panel-left.folded {
+  align-self: start;
+  width: auto;
+}
+
+.left-tabs {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-left.folded .left-tabs {
+  border-bottom: 0;
+}
+
+.left-tab {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.left-tab:hover {
+  color: var(--text);
+}
+
+.panel-left:not(.folded) .left-tab[aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.left-fold {
+  flex: none;
+  width: 30px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.left-fold:hover {
+  color: var(--text);
+}
+
+.panel-left.folded .left-fold,
+.panel-left.folded .left-resize {
+  display: none;
+}
+
+.left-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.left-tab-body[hidden] {
+  display: none;
+}
+
+.panel-left .panel-section {
+  border-bottom: 0;
+}
+
+.left-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* Inside the panel: its overflow: hidden would clip a handle that sticks out. */
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.left-resize:hover,
+.left-resize:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.chat-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.6;
+}
+
+[data-dot='green'] > .chat-dot,
+.chat-dot[data-dot='green'] {
+  background: var(--ok);
+  opacity: 1;
+}
+
+[data-dot='blue'] > .chat-dot,
+.chat-dot[data-dot='blue'] {
+  background: var(--accent);
+  opacity: 1;
+}
+
+[data-dot='amber'] > .chat-dot,
+.chat-dot[data-dot='amber'] {
+  background: var(--warn);
+  opacity: 1;
+}
+
+.chat-unread {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.chat-unread[hidden] {
+  display: none;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-state {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font-weight: 600;
+}
+
+/* "+ New chat" and 🕘 at the right end of the state line. */
+.chat-state-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-head-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-weight: 400;
+}
+
+/* Earlier topics: answers the agent filed in a topic that isn't the current one. */
+#chat-history {
+  position: relative;
+}
+
+#chat-history[data-unread]::after {
+  content: attr(data-unread);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Viewing a past chat: what it is + the way back, above the read-only lines. */
+.chat-past {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  font-size: 12px;
+}
+
+.chat-past[hidden] {
+  display: none;
+}
+
+.chat-past-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.chat-compose[hidden],
+.chat-locked[hidden] {
+  display: none;
+}
+
+/* In place of the message box until a project is open and an agent listened. */
+.chat-locked {
+  flex: none;
+  padding: 8px 10px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.chat-lock-head {
+  font-weight: 600;
+}
+
+.chat-lock-steps {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.chat-lock-steps .chat-command {
+  margin-top: 4px;
+}
+
+.chat-lock-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* A model was shown: a thin grey line across the chat (not a bubble). */
+.chat-event {
+  align-self: stretch;
+  max-width: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* "Working on your message in topic “…” →": the agent is busy with another topic's message. */
+.chat-working-in {
+  align-self: stretch;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+button.chat-working-in {
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+button.chat-working-in:hover {
+  text-decoration: underline;
+}
+
+/* "▸ Caught up · …" / "▸ Saved a summary…": a grey line that unfolds what was passed. */
+.chat-folded summary {
+  cursor: pointer;
+}
+
+.chat-folded-body {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  text-align: left;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* The agent's name above a run of answers, with a small terminal mark (it runs there). */
+.chat-agent-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-terminal-mark {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+}
+
+/* The rail: beside what the listening connection received; lines before it fade. */
+.chat-log.has-rail {
+  position: relative;
+  padding-left: 18px;
+}
+
+.chat-rail {
+  position: absolute;
+  left: 7px;
+  width: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.chat-rail.off-top {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--accent) 45%, transparent) 40px
+  );
+}
+
+.chat-log.has-rail .before-rail {
+  opacity: 0.7;
+}
+
+.chat-older {
+  align-self: center;
+  font-size: 12px;
+}
+
+.chat-log {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 88%;
+}
+
+.chat-user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-agent {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* Bubbles nearly solid: readable over the model. */
+.chat-bubble {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.chat-user .chat-bubble {
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  border-color: transparent;
+  white-space: pre-wrap;
+}
+
+.chat-user.queued .chat-bubble {
+  opacity: 0.75;
+}
+
+.chat-note,
+.chat-progress {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-progress {
+  padding-left: 4px;
+}
+
+.chat-md p,
+.chat-md ul,
+.chat-md ol,
+.chat-md pre {
+  margin: 0 0 6px;
+}
+
+.chat-md > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-md ul,
+.chat-md ol {
+  padding-left: 18px;
+}
+
+.chat-md code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.chat-md pre {
+  overflow-x: auto;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.chat-md pre code {
+  padding: 0;
+  background: none;
+}
+
+.chat-md a {
+  color: var(--accent);
+}
+
+/* "↳ Replied under #3 …" / "↳ You replied under #3 …": a link to the comment card. */
+.chat-ref {
+  max-width: 100%;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chat-ref:hover {
+  text-decoration: underline;
+}
+
+.chat-ref:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.chat-replied .chat-ref {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.chat-review .chat-bubble {
+  font-style: italic;
+}
+
+.chat-steps {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-steps summary {
+  cursor: pointer;
+  padding-left: 4px;
+}
+
+.chat-steps ol {
+  margin: 2px 0 0;
+  padding-left: 22px;
+}
+
+.chat-typing {
+  display: flex;
+  gap: 4px;
+  padding: 9px 12px;
+}
+
+.chat-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: chat-typing 1.2s infinite ease-in-out;
+}
+
+.chat-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.chat-hint,
+.chat-help.warn {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+  color: var(--text);
+}
+
+.chat-hint {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.chat-help-text {
+  margin: 0;
+}
+
+.chat-help {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  line-height: 1.4;
+}
+
+.chat-command {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-command code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.chat-compose {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.chat-compose textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  max-height: 40vh;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.chat-compose textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.chat-compose-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chat-send-key {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 /*

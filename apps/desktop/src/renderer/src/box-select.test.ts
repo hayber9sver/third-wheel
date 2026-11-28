@@ -22,7 +22,7 @@ const identity: Projection = {
   height: 100,
 };
 
-describe('boxMode / boxAction (T2.6)', () => {
+describe('boxMode / boxAction', () => {
   it('no Alt = window (fully inside), Alt = crossing', () => {
     expect(boxMode(false)).toBe('window');
     expect(boxMode(true)).toBe('crossing');
@@ -35,7 +35,7 @@ describe('boxMode / boxAction (T2.6)', () => {
   });
 });
 
-describe('boxLabel (T2.7)', () => {
+describe('boxLabel', () => {
   it('says what releasing does and how to switch the mode', () => {
     expect(boxLabel('add', 'window')).toBe('+ inside · Alt: crossing');
     expect(boxLabel('remove', 'window')).toBe('− inside · Alt: crossing');

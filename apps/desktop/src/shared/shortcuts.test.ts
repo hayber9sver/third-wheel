@@ -33,14 +33,14 @@ describe('shortcuts', () => {
     expect(shortcutLabel('o', false)).toBe('Ctrl+O');
   });
 
-  it('list clicks: Shift = range, anything else = add/remove (T2.6)', () => {
+  it('list clicks: Shift = range, anything else = add/remove', () => {
     expect(listClickMode(keys)).toBe('toggle');
     expect(listClickMode({ ...keys, shiftKey: true })).toBe('range');
     expect(listClickMode({ ...keys, metaKey: true })).toBe('toggle');
     expect(listClickMode({ ...keys, ctrlKey: true })).toBe('toggle');
   });
 
-  it('undo / redo keys per platform (T3.5)', () => {
+  it('undo / redo keys per platform', () => {
     const k = (mods: Partial<typeof keys>, key: string) => ({ ...keys, ...mods, key });
     expect(undoRedoShortcut(k({ metaKey: true }, 'z'), true)).toBe('undo');
     expect(undoRedoShortcut(k({ metaKey: true, shiftKey: true }, 'Z'), true)).toBe('redo');

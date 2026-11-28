@@ -1,0 +1,30 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "codex",
+  "label": "Codex",
+  "tab": "Codex",
+  "order": 20,
+  "tested": null,
+  "engine": "settings",
+  "settings": {
+    "file": "~/.codex/config.toml",
+    "fileEnv": "CODEX_HOME",
+    "format": "toml",
+    "key": ["mcp_servers", "{name}"],
+    "entry": {
+      "command": "{command}",
+      "args": ["{serverPath}"],
+      "tool_timeout_sec": 1800,
+      "env": "{env}"
+    }
+  },
+  "manual": { "settings": true },
+  "chat": { "start": "codex" },
+  "texts": {
+    "button": "Add to Codex",
+    "buttonHint": "Writes it into {file}; the old file is kept as .bak.",
+    "title": "Or add this to ~/.codex/config.toml yourself",
+    "where": "Codex CLI, IDE extension and app share this file; create it if it isn't there (Windows: C:\\Users\\you\\.codex\\config.toml). Keep tool_timeout_sec (30 min): Codex stops a tool after 60 s by default, and waiting for your review or chat message takes up to 25 min. Then restart Codex and type /mcp: third-wheel should be listed.",
+    "after": "Restart Codex: /mcp lists third-wheel."
+  }
+}

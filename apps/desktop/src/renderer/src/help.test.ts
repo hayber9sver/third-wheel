@@ -19,7 +19,7 @@ const shown = (id: StyleId, isMac = true): string =>
     .flatMap((s) => [s.title, ...lines(s.rows)])
     .join('\n');
 
-describe('cheatSheet (T2.7, T10.3)', () => {
+describe('cheatSheet', () => {
   it('has six short groups for every style', () => {
     for (const style of NAVIGATION_STYLES) {
       const sections = cheatSheet(style, false);
@@ -56,7 +56,7 @@ describe('cheatSheet (T2.7, T10.3)', () => {
     expect(text('fusion')).toContain('Hold Alt while boxing');
   });
 
-  it('describes the brush tools and their cursors (T3.1)', () => {
+  it('describes the brush tools and their cursors', () => {
     expect(shown('fusion')).toContain('B Brush: Drag on the model: paint with the active marker');
     expect(shown('fusion')).toContain(
       'F Smart fill: Click: fill up to edges sharper than the angle',
@@ -78,9 +78,11 @@ describe('cheatSheet (T2.7, T10.3)', () => {
     expect(text('fusion')).not.toMatch(/Click a comment: [^\n]*[Hh]ighlight and zoom/);
   });
 
-  it('names Send to AI, Reload, Versions, marker rename and Delete', () => {
-    expect(shown('fusion')).toContain('Send to AI:');
-    expect(shown('fusion')).toContain('↻: Reload the shown file from disk');
+  it('names Send review, Reload, Versions, marker rename and Delete', () => {
+    expect(shown('fusion')).toContain('Send review:');
+    expect(shown('fusion')).toContain(
+      'File ▸ Reload from disk: Read the shown file again after you saved over it',
+    );
     expect(shown('fusion')).toContain('Versions ▾: Compare with an earlier version');
     expect(text('fusion')).toContain('Double-click or F2 on a marker row: Rename the marker');
     expect(text('fusion')).toContain('Delete on a marker row: Delete the marker');
@@ -88,9 +90,9 @@ describe('cheatSheet (T2.7, T10.3)', () => {
   });
 
   it('shows the platform shortcuts', () => {
-    expect(shown('fusion', true)).toContain('⌘O: Open a model');
-    expect(shown('fusion', false)).toContain('Ctrl+O: Open a model');
-    expect(shown('fusion', true)).toContain('⌘I: Import a new version');
+    expect(shown('fusion', true)).toContain('⌘O: Open a folder');
+    expect(shown('fusion', false)).toContain('Ctrl+O: Open a folder');
+    expect(shown('fusion', true)).toContain('⌘I: Add a file');
     expect(shown('fusion', false)).toContain('Ctrl+Z / Ctrl+Y: Undo / redo');
     expect(text('fusion', false)).toContain('Ctrl+S: Save notes now');
     expect(text('fusion', false)).toContain('Win+H: Dictate a comment');

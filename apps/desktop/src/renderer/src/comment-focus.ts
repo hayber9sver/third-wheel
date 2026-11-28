@@ -1,7 +1,8 @@
 /**
- * Focused comment look (T4.2): the comment's markers keep their own
- * colour at full strength (shown even when hidden), every other marker's paint and entities fade
- * toward the face colour. Pure — the viewport applies it to what it draws.
+ * Focused comment look: the comment's markers keep their own
+ * colour at full strength (shown even when hidden or resolved), every other marker's paint and
+ * entities fade toward the face colour. Resolved markers shown by "Show resolved" are faded the
+ * same way. Pure — the viewport applies it to what it draws.
  */
 import type { MarkerStyle } from './paint-overlay.js';
 import type { ShownEntity } from './markers.js';
@@ -26,30 +27,36 @@ function mixHex(from: string, to: number, t: number): string {
   return `#${n.toString(16).padStart(6, '0')}`;
 }
 
-/** Paint styles with a focus: focused markers drawn (even hidden), others faded. No focus = as is. */
+/**
+ * Paint styles with a focus: focused markers drawn (even hidden) in full colour, others faded.
+ * Without a focus only resolved markers shown by "Show resolved" (`fade`) are faded.
+ */
 export function focusedStyles(
   styles: readonly MarkerStyle[],
   focus: ReadonlySet<string> | undefined,
   faceColor: number,
 ): readonly MarkerStyle[] {
-  if (!focus || focus.size === 0) return styles;
-  return styles.map((s) =>
-    focus.has(s.id)
-      ? s.visible
-        ? s
-        : { ...s, visible: true }
-      : { ...s, color: mixColor(s.color, faceColor, FOCUS_FADE) },
-  );
+  const focused = focus !== undefined && focus.size > 0;
+  if (!focused && !styles.some((s) => s.fade === true)) return styles;
+  return styles.map((s) => {
+    if (focused && focus.has(s.id)) return s.visible ? s : { ...s, visible: true };
+    return focused || s.fade === true
+      ? { ...s, color: mixColor(s.color, faceColor, FOCUS_FADE) }
+      : s;
+  });
 }
 
-/** Marker entities with a focus: other markers' entities faded. */
+/** Marker entities with a focus: other markers' entities faded (and resolved ones without one). */
 export function focusedEntities(
   entities: readonly ShownEntity[],
   focus: ReadonlySet<string> | undefined,
   faceColor: number,
 ): readonly ShownEntity[] {
-  if (!focus || focus.size === 0) return entities;
+  const focused = focus !== undefined && focus.size > 0;
+  if (!focused && !entities.some((e) => e.fade === true)) return entities;
   return entities.map((e) =>
-    focus.has(e.markerId) ? e : { ...e, color: mixHex(e.color, faceColor, FOCUS_FADE) },
+    (focused && focus.has(e.markerId)) || (!focused && e.fade !== true)
+      ? e
+      : { ...e, color: mixHex(e.color, faceColor, FOCUS_FADE) },
   );
 }

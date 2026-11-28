@@ -12,10 +12,8 @@ export const TARGET = 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 1v5 M12 18v5 M1 
 export const CHEVRON = 'M9 6l6 6-6 6';
 /** Close / delete cross. */
 export const CROSS = 'M6 6l12 12 M18 6L6 18';
-/** Folder (user folders in the body list, T5.4). */
+/** Folder (user folders in the body list). */
 export const FOLDER = 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z';
-/** Plus. */
-export const PLUS = 'M12 5v14 M5 12h14';
 
 export function icon(d = ''): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -27,7 +25,7 @@ export function icon(d = ''): SVGSVGElement {
   return svg;
 }
 
-// Toolbar (T10.1): shown next to the label, alone when the window is narrow (tooltip names it).
+// Toolbar: shown next to the label, alone when the window is narrow (tooltip names it).
 /** Select tool: pointer arrow. */
 export const POINTER = 'M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z M13 13l6 6';
 /** Brush tool. */

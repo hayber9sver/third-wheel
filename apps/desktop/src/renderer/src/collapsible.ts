@@ -1,5 +1,5 @@
 /**
- * Collapsible panel sections (T2.5): the section's h2 becomes a toggle button; a collapsed
+ * Collapsible panel sections: the section's h2 becomes a toggle button; a collapsed
  * section shows only its heading. Which sections are collapsed is remembered per id.
  */
 export const COLLAPSED_STORAGE_KEY = 'third-wheel.collapsed-sections';

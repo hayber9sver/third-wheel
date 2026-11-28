@@ -1,4 +1,15 @@
-/** three.js viewport: Z-up scene with grid + axes, orbit/pan/zoom, render-on-demand, resize-aware. */
+/**
+ * three.js viewport: Z-up scene with grid + axes, orbit/pan/zoom, render-on-demand, resize-aware.
+ *
+ * Why one file (~2,200 lines): one class that owns the scene, camera, renderers and pointer input,
+ * and whose parts share that private state; the drawing pieces already live in their own modules
+ * (highlighter, paint-overlay, pin-overlay, picker, region-render, view-cube …). Methods of
+ * `Viewport`, in order: setup + theme · model, ghosts, compare, body visibility · camera framing
+ * (setView / fitAll / frame…) · region pictures for the AI (renderRegion / renderContactSheet) ·
+ * comment pins + dimensions · selection, tools, paint strokes + Smart fill · marker entities +
+ * hover highlight · pointer input + box select · projection + camera moves · view cube ·
+ * picking + hover · navigation style, resize, render loop · benchmarks.
+ */
 import type { StepModel } from '@third-wheel/geometry';
 import {
   AxesHelper,
@@ -37,12 +48,14 @@ import {
   type OrbitStyle,
 } from './navigation.js';
 import { buildBodyBuffers, visibleRuns } from './body-buffers.js';
-import { WheelClassifier, type ScrollInput } from './wheel.js';
+import { WheelClassifier } from './wheel.js';
 import {
   bodyBoxes,
   boxCenter,
   easeInOut,
   fitDistance,
+  fitInFreeArea,
+  freeAreaShift,
   nearestScreenUp,
   orbitSetup,
   rollScreenUp,
@@ -78,6 +91,7 @@ import type { ShownEntity } from './markers.js';
 import { focusedEntities, focusedStyles } from './comment-focus.js';
 import type { SelectionItem } from './selection.js';
 import { pinSpots, type PinSpec } from './comment-pins.js';
+import { DimensionOverlay, type DimensionSpec } from './dimension-overlay.js';
 import { PinOverlay, type PlacedPin } from './pin-overlay.js';
 import {
   BrushCursor,
@@ -115,7 +129,7 @@ import {
   type FillRegion,
 } from './smart-fill.js';
 
-/** Brush stamps along a stroke at most this far apart, as a fraction of the radius (T3.3). */
+/** Brush stamps along a stroke at most this far apart, as a fraction of the radius. */
 const STROKE_SPACING = 0.5;
 /** Extra stamps filled in between two frames of a fast stroke, at most. */
 const MAX_STROKE_FILL = 32;
@@ -130,8 +144,8 @@ export interface PickHit extends SelectionItem {
   readonly body: number;
 }
 
-/** Default pick radius, CSS px: vertices/edges this close to the cursor win over the face under it. */
-export const DEFAULT_PICK_RADIUS = 6;
+/** Pick radius, CSS px: vertices/edges this close to the cursor win over the face under it. */
+const PICK_RADIUS = 6;
 
 /** A press that moves less than this (CSS px) before release is a click, not a drag. */
 const CLICK_SLOP_PX = 4;
@@ -166,26 +180,26 @@ interface ModelView {
   readonly picker: Picker;
   /** Entity → body, from the StepModel. */
   readonly bodyOf: Readonly<Record<EntityRef['kind'], Uint32Array>>;
-  /** Hover + selection highlight (T2.2). */
+  /** Hover + selection highlight. */
   readonly highlighter: Highlighter;
-  /** Entities held by markers, in their colours (T3.7). */
+  /** Entities held by markers, in their colours. */
   readonly markerEntities: MarkerEntitiesOverlay;
   /** Bounding sphere of the whole model (minimum zoom-to-selection size). */
   readonly radius: number;
   /** Surface point under the pointer for the brush tools (BVH built on first use). */
   readonly surface: SurfaceRaycaster;
-  /** Paint drawn over the faces (T3.3). */
+  /** Paint drawn over the faces. */
   readonly paint: PaintOverlay;
   /** Body per import triangle. */
   readonly triBody: Uint32Array;
   /** Smart fill: hover preview and triangle neighbours (built in idle time or on first use). */
   readonly fillPreview: FillPreview;
   adjacency: TriangleAdjacency | undefined;
-  /** Offscreen region pictures (T6.3), built on first use. */
+  /** Offscreen region pictures, built on first use. */
   regionRenderer: RegionRenderer | undefined;
 }
 
-/** A region picture (T6.3): PNG + how it was taken, so the AI can read it. */
+/** A region picture: PNG + how it was taken, so the AI can read it. */
 export interface RegionImage extends RegionCamera {
   readonly png: Uint8Array;
   /** Square size in px. */
@@ -195,7 +209,7 @@ export interface RegionImage extends RegionCamera {
   readonly encodeMs: number;
 }
 
-/** How a region picture was taken (T6.3), so the AI can read it. */
+/** How a region picture was taken, so the AI can read it. */
 export interface RegionCamera {
   /** Unit direction from the region towards the camera (orthographic, looks along −dir). */
   readonly viewDir: Vec3;
@@ -204,7 +218,7 @@ export interface RegionCamera {
   /** World point at the picture's centre. */
   readonly center: Vec3;
   readonly mmPerPx: number;
-  /** Bodies in front of the region, drawn faint and see-through (T6.5); empty = none. */
+  /** Bodies in front of the region, drawn faint and see-through; empty = none. */
   readonly ghosted: readonly GhostedBody[];
 }
 
@@ -230,7 +244,7 @@ interface RegionShot {
   readonly ghosted: readonly GhostedBody[];
 }
 
-/** One tile of a contact sheet (T6.4). */
+/** One tile of a contact sheet. */
 export interface ContactSheetTile extends RegionCamera {
   /** Label drawn in the tile's top-left corner (1…; no label when the sheet has one tile). */
   readonly number: number;
@@ -243,7 +257,7 @@ export interface ContactSheetTile extends RegionCamera {
   readonly size: number;
 }
 
-/** Several region pictures in one PNG (T6.4). */
+/** Several region pictures in one PNG. */
 export interface ContactSheet {
   readonly png: Uint8Array;
   readonly width: number;
@@ -256,7 +270,7 @@ export interface ContactSheet {
   readonly encodeMs: number;
 }
 
-/** A comment pin to show (T4.3): its look + what it is anchored on. */
+/** A comment pin to show: its look + what it is anchored on. */
 export interface CommentPinRequest {
   readonly spec: PinSpec;
   readonly items: readonly SelectionItem[];
@@ -277,7 +291,7 @@ function lookRotation(dir: Vec3, screenUp: Vec3): Quaternion {
   return new Quaternion().setFromRotationMatrix(m);
 }
 
-/** Camera rest before comment pins hop to a visible spot (T4.3), in ms. */
+/** Camera rest before comment pins hop to a visible spot, in ms. */
 const PIN_SETTLE_MS = 150;
 
 /** Duration of camera moves for preset views / fit, in ms. */
@@ -298,13 +312,14 @@ export class Viewport {
   private readonly camera = new PerspectiveCamera(45, 1, 0.1, 10_000);
   private readonly controls: OrbitControls;
   private readonly resizeObserver: ResizeObserver;
+  /** CSS px of the view's left side the floating left panel covers (0 = folded / none). */
+  private leftCover = 0;
   private grid: GridHelper | undefined;
   private model: ModelView | undefined;
   private theme: ResolvedTheme = 'light';
   private frameRequested = false;
   private disposed = false;
   private navStyle: NavigationStyle = getNavigationStyle(DEFAULT_NAVIGATION_STYLE);
-  private scrollInput: ScrollInput = 'auto';
   private orbitStyle: OrbitStyle = 'turntable';
   private readonly wheelClassifier = new WheelClassifier(navigator.userAgent.includes('Mac'));
   private readonly viewCube = new ViewCube();
@@ -312,7 +327,6 @@ export class Viewport {
   private cubePress: { pointerId: number; dir: Vec3 } | undefined;
   /** Running preset/fit camera move; OrbitControls must not touch the camera meanwhile. */
   private cameraMove: { frame: number; finish: () => void } | undefined;
-  private pickRadius = DEFAULT_PICK_RADIUS;
   /** Last pointer position over the canvas (CSS px, canvas-relative), for hover picking. */
   private pointer: { x: number; y: number } | undefined;
   private hoverRequested = false;
@@ -321,28 +335,29 @@ export class Viewport {
   /** Bodies hovered in the body list (highlighted like a hover in the view). */
   private listHover: readonly SelectionItem[] = [];
   /**
-   * Focused comment (T4.2): its markers' entities (hover layer when nothing else hovers); its
+   * Focused comment: its markers' entities (hover layer when nothing else hovers); its
    * markers keep their colour (shown even when hidden), other markers fade (`comment-focus.ts`).
    */
   private focusItems: readonly SelectionItem[] = [];
   private focusMarkers: ReadonlySet<string> | undefined;
-  /** Comment pins (T4.3): what main asked for (anchors recomputed on visibility changes). */
+  /** Comment pins: what main asked for (anchors recomputed on visibility changes). */
   private pinRequests: readonly CommentPinRequest[] = [];
   private readonly pinOverlay = new PinOverlay();
-  /** Ghosts of lost markers and the compare with the previous version (T8.3). */
+  private readonly dimensionOverlay = new DimensionOverlay();
+  /** Ghosts of lost markers and the compare with the previous version. */
   private readonly revision = new RevisionOverlay();
   /** Pins pick their visible spot on the next frame (camera came to rest / pins changed). */
   private pinSettle = false;
   private pinCameraKey = '';
   private pinSettleTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Active tool (T3.1). Select: hover highlight + clicks to `onClick`; others: their cursor. */
+  /** Active tool. Select: hover highlight + clicks to `onClick`; others: their cursor. */
   private tool: ToolId = DEFAULT_TOOL;
   private brushRadius = DEFAULT_BRUSH_RADIUS_MM;
   private readonly brushCursor = new BrushCursor();
   /** Pointer over the visible model (brush tools) / over the view cube: decides the CSS cursor. */
   private overSurface = false;
   private overCube = false;
-  /** Paint shown over the model and the markers' colours / visibility (T3.3). */
+  /** Paint shown over the model and the markers' colours / visibility. */
   private paintLayer: PaintLayer | undefined;
   private markerStyles: readonly MarkerStyle[] = [];
   private shownEntities: readonly ShownEntity[] = [];
@@ -359,7 +374,7 @@ export class Viewport {
         lastRegion?: FillRegion;
       }
     | undefined;
-  /** Smart fill settings (T3.4) and the last region computed (reused while hovering inside it). */
+  /** Smart fill settings and the last region computed (reused while hovering inside it). */
   private fillAngle = DEFAULT_FILL_ANGLE_DEG;
   private fillWholeFace = false;
   private fillRegion: { key: string; region: FillRegion } | undefined;
@@ -445,6 +460,7 @@ export class Viewport {
     this.boxOverlay.className = 'box-select-rect';
     this.boxOverlay.hidden = true;
     container.appendChild(this.boxOverlay);
+    container.appendChild(this.dimensionOverlay.el);
     container.appendChild(this.pinOverlay.el);
     this.pinOverlay.onClick = (id, detail) => {
       this.onPinClick?.(id, detail);
@@ -475,12 +491,21 @@ export class Viewport {
   }
 
   /**
-   * Mouse/trackpad mapping (see navigation.ts). Mouse wheel vs trackpad is auto-detected per
-   * gesture; `scrollInput` forces one (no UI yet — reserved for a future settings panel).
+   * The floating left panel now covers `px` CSS px of the view's left side. The picture moves
+   * so the view's middle (where the orbit target is drawn) is the middle of the free part; the
+   * camera and its orbit target stay put, so orbiting turns the model in place.
    */
-  setNavigation(style: NavigationStyle, scrollInput: ScrollInput = 'auto'): void {
+  setLeftCover(px: number): void {
+    const cover = Number.isFinite(px) ? Math.max(px, 0) : 0;
+    if (cover === this.leftCover) return;
+    this.leftCover = cover;
+    this.applyViewOffset();
+    this.requestRender();
+  }
+
+  /** Mouse/trackpad mapping (see navigation.ts). Mouse wheel vs trackpad is auto-detected per gesture. */
+  setNavigation(style: NavigationStyle): void {
     this.navStyle = style;
-    this.scrollInput = scrollInput;
     this.applyNavigationStyle();
   }
 
@@ -516,7 +541,7 @@ export class Viewport {
    * Show a model CAD-style — shaded faces plus dark B-rep edge lines — and frame it. All bodies
    * share one mesh and one line object; `setBodyVisibility` only changes the drawn ranges.
    */
-  /** The shown model is a mesh (STL / 3MF, T9.1): no hover highlight, clicks or box select of entities. */
+  /** The shown model is a mesh (STL / 3MF): no hover highlight, clicks or box select of entities. */
   private meshOnly = false;
 
   showModel(model: StepModel): void {
@@ -627,7 +652,7 @@ export class Viewport {
           () => {
             if (this.model !== view || this.disposed) return;
             this.adjacencyOf(view);
-            // First brush stroke: paint code optimised and paint shader compiled (T12.2).
+            // First brush stroke: paint code optimised and paint shader compiled.
             warmPaintCode();
             void view.paint.warm(this.renderer, this.scene, this.camera).catch(() => undefined); // only a warm-up: the first paint compiles anyway
             // AI pictures: shaders + target ready before the first render_region.
@@ -657,7 +682,7 @@ export class Viewport {
     return m.regionRenderer;
   }
 
-  /** Ghosts of markers the revision transfer could not place (T8.3). */
+  /** Ghosts of markers the revision transfer could not place. */
   setGhosts(shapes: readonly GhostShape[]): void {
     this.revision.setGhosts(shapes);
     this.requestRender();
@@ -669,10 +694,10 @@ export class Viewport {
     this.requestRender();
   }
 
-  /** Compare with the previous version (T8.3); undefined ends it. */
+  /** Compare with the previous version; undefined ends it. */
   setCompare(diff: VersionDiff | undefined): void {
     this.revision.setCompare(this.model ? diff : undefined);
-    this.model?.paint.setFaded(this.revision.comparing); // T12.5: the diff shows through paint
+    this.model?.paint.setFaded(this.revision.comparing); // the diff shows through paint
     this.requestRender();
   }
 
@@ -727,6 +752,7 @@ export class Viewport {
     this.focusMarkers = undefined;
     this.pinRequests = [];
     this.pinOverlay.set([]);
+    this.dimensionOverlay.set([]);
     this.setHovered(undefined);
     this.setSurfaceHover(undefined);
     this.requestRender();
@@ -781,7 +807,7 @@ export class Viewport {
   }
 
   /**
-   * Zoom to the given bodies (keeps the view direction) — zoom-to-selection. T2.2 passes the
+   * Zoom to the given bodies (keeps the view direction) — zoom-to-selection. Selection passes the
    * selection's bodies here; entity-level framing can reuse `fitPose` with any bounding sphere.
    */
   frameBodies(ids: Iterable<number>): void {
@@ -807,7 +833,7 @@ export class Viewport {
   }
 
   /**
-   * Focus of a comment (T4.2): its markers' `items` are drawn like a hover (while nothing else is
+   * Focus of a comment: its markers' `items` are drawn like a hover (while nothing else is
    * hovered); `markerIds` keep their colour (shown even when hidden), all other markers fade.
    * `markerIds` empty = no fading (nothing to focus).
    */
@@ -848,7 +874,7 @@ export class Viewport {
   }
 
   /**
-   * Picture of the markers in `request` for the AI (T6.3): offscreen, `size` px square (clamped
+   * Picture of the markers in `request` for the AI: offscreen, `size` px square (clamped
    * to 64…768), their paint + entities in their colours, everything else grey, camera along the
    * region's normal and zoomed to it (region-view.ts). Hidden markers and bodies are drawn too;
    * the user's view is untouched. Undefined when there is no model or the markers hold nothing.
@@ -871,7 +897,7 @@ export class Viewport {
   }
 
   /**
-   * Contact sheet (T6.4): one picture per request (each like `renderRegion`, own camera) in one
+   * Contact sheet: one picture per request (each like `renderRegion`, own camera) in one
    * image — 1 → 768², 2 → 768 × 384, 3–4 → 2 × 2 tiles of 384², numbered 1… (contact-sheet.ts).
    * Requests that show nothing are left out (`skipped`, by request index); undefined when none
    * is left or there is no model. More than 4 requests is an error.
@@ -944,7 +970,7 @@ export class Viewport {
     return samples.points.length > 0 ? samples : undefined;
   }
 
-  /** Draws `request` offscreen at `px`² (T6.3); RGBA top-down + the camera used. */
+  /** Draws `request` offscreen at `px`²; RGBA top-down + the camera used. */
   private regionShot(
     request: RegionRequest,
     samples: RegionSamples,
@@ -953,7 +979,7 @@ export class Viewport {
     const m = this.model;
     if (!m) return undefined;
     const sphere = m.faces.geometry.boundingSphere;
-    // Parts in front (T6.5): turn to a clearer direction if needed, ghost what still blocks.
+    // Parts in front: turn to a clearer direction if needed, ghost what still blocks.
     const ray = new Ray();
     const surface = m.surface;
     const choice = chooseRegionDir(
@@ -988,7 +1014,7 @@ export class Viewport {
   }
 
   /**
-   * Comment pins (T4.3): one per request, anchored on its `items` + painted `triangles` (visible
+   * Comment pins: one per request, anchored on its `items` + painted `triangles` (visible
    * bodies only; a pin with nothing visible is left out). Drawn over the view, moved every frame.
    */
   setCommentPins(pins: readonly CommentPinRequest[]): void {
@@ -1096,6 +1122,30 @@ export class Viewport {
     );
   }
 
+  /** Dimensions drawn over the view: the selection's and the highlighted comment's. */
+  setDimensions(specs: readonly DimensionSpec[]): void {
+    this.dimensionOverlay.set(specs);
+    this.requestRender();
+  }
+
+  /** Dimensions shown (tests). */
+  dimensionStats(): { label: string; shown: boolean }[] {
+    return this.dimensionOverlay.stats();
+  }
+
+  private readonly dimensionPoint = new Vector3();
+
+  /** Moves the dimensions to the current camera (every frame). */
+  private moveDimensions(): void {
+    if (this.dimensionOverlay.count === 0) return;
+    const { clientWidth: w, clientHeight: h } = this.renderer.domElement;
+    this.dimensionOverlay.place((p) => {
+      const v = this.dimensionPoint.set(...p).project(this.camera);
+      if (v.z < -1 || v.z > 1) return undefined;
+      return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
+    });
+  }
+
   /** Show `items` as the selection (highlighted until replaced). */
   setSelection(items: readonly SelectionItem[]): void {
     this.model?.highlighter.set('selection', items);
@@ -1121,7 +1171,7 @@ export class Viewport {
   }
 
   /**
-   * Smart fill (T3.4): fill across edges bent at most `angleDeg`, or (`wholeFace`) exactly the
+   * Smart fill: fill across edges bent at most `angleDeg`, or (`wholeFace`) exactly the
    * clicked B-rep face.
    */
   setFill(angleDeg: number, wholeFace: boolean): void {
@@ -1165,7 +1215,7 @@ export class Viewport {
   /**
    * Triangles to paint or erase (import ids, visible bodies only): what the brush ball touched
    * this frame, or a Smart fill region. Called at most once per frame while a stroke runs.
-   * `spheres`: the brush stamps of this frame (Brush, also Shift-erase; paint follows the ball, T3.6);
+   * `spheres`: the brush stamps of this frame (Brush, also Shift-erase; paint follows the ball);
    * undefined for Smart fill (whole triangles).
    */
   onStroke:
@@ -1331,7 +1381,7 @@ export class Viewport {
     return this.stroke !== undefined;
   }
 
-  /** Brush circle / fill preview colour as 0xrrggbb: the active marker's (T3.2). Erase stays red. */
+  /** Brush circle / fill preview colour as 0xrrggbb: the active marker's. Erase stays red. */
   setBrushColor(color: number): void {
     this.brushColor = color;
     this.brushCursor.setBrushColor(color);
@@ -1348,7 +1398,7 @@ export class Viewport {
     return this.brushCursor.current();
   }
 
-  /** Selection filter (T2.3): which kinds hover and clicks may pick. The selection is kept. */
+  /** Selection filter: which kinds hover and clicks may pick. The selection is kept. */
   setSelectionFilter(filter: SelectionFilter): void {
     this.filter = filter;
     this.model?.picker.setPassKinds(pickPassKinds(filter));
@@ -1364,7 +1414,7 @@ export class Viewport {
     this.applyHoverHighlight();
   }
 
-  /** Entities held by markers, already resolved to one colour each (T3.7). */
+  /** Entities held by markers, already resolved to one colour each. */
   setMarkerEntities(entities: readonly ShownEntity[]): void {
     this.shownEntities = entities;
     this.model?.markerEntities.set(this.entitiesForView());
@@ -1379,7 +1429,7 @@ export class Viewport {
   /**
    * Called for a right click (press + release of the right button without dragging, so a
    * right-drag still navigates) with the entity under it (Select tool only, else undefined) and
-   * the pointer's page position, for a context menu (T3.7).
+   * the pointer's page position, for a context menu.
    */
   onContextMenu: ((hit: PickHit | undefined, at: { x: number; y: number }) => void) | undefined;
 
@@ -1420,15 +1470,16 @@ export class Viewport {
   /**
    * Called for a left click (press + release without dragging) in the select tool: the entity
    * under the cursor, or undefined for background / hidden bodies; `triangle` = import triangle
-   * under the cursor on a visible body (paint there, T4.2), if any.
+   * under the cursor on a visible body (paint there), if any.
    */
   onClick: ((hit: PickHit | undefined, triangle: number | undefined) => void) | undefined;
 
   /**
    * Called after the second `onClick` of a double click (the system's double-click speed; both
-   * clicks without a drag) with the body under the cursor, whatever the filter allows (undefined = background).
+   * clicks without a drag) with the entity the filter allows under the cursor (as `onClick` got
+   * it) and the body under the cursor, whatever the filter allows (undefined = background).
    */
-  onDoubleClick: ((body: number | undefined) => void) | undefined;
+  onDoubleClick: ((hit: PickHit | undefined, body: number | undefined) => void) | undefined;
 
   private canvasPoint(e: MouseEvent): { x: number; y: number } {
     const r = this.renderer.domElement.getBoundingClientRect();
@@ -1444,12 +1495,12 @@ export class Viewport {
       return;
     }
     const p = this.canvasPoint(e);
-    // A left drag of the Select tool draws a box (T2.6). Fusion / Onshape: anywhere (left-drag
+    // A left drag of the Select tool draws a box. Fusion / Onshape: anywhere (left-drag
     // doesn't navigate there). Slicer style, where left-drag orbits: a press on the model (even
     // where the filter allows nothing), or Shift + press anywhere (instead of OrbitControls'
     // Shift-pan); Alt + press there still orbits, for when the model fills the view. Decided once.
     const slicer = leftDragNavigates(this.navStyle);
-    // Paint tools (T3.1, painting in T3.3, Smart fill T3.4) follow the same rule, without the
+    // Paint tools (Brush, Smart fill) follow the same rule, without the
     // Shift exception; they decide "on the model" with the same surface ray as their cursor.
     const surfaceHit = this.surfaceTool && !e.altKey ? this.surfaceHitAt(p) : undefined;
     const onModel = (): boolean =>
@@ -1614,7 +1665,14 @@ export class Viewport {
     if (e.button !== 0 || e.target !== this.renderer.domElement || this.clicksInRow < 2) return;
     if (!this.selectEnabled || this.cubeDirAt(e)) return;
     const p = this.canvasPoint(e);
-    if (!this.meshOnly) this.onDoubleClick?.(this.rawPick(p.x, p.y)?.body);
+    if (this.meshOnly) return;
+    const raw = this.rawPick(p.x, p.y);
+    if (!raw) {
+      this.onDoubleClick?.(undefined, undefined);
+      return;
+    }
+    const item = applyFilter(raw.ref, raw.body, this.filter);
+    this.onDoubleClick?.(item && { kind: item.kind, id: item.id, body: raw.body }, raw.body);
   };
 
   /** Canvas position (CSS px) of a world point — for tests and overlays. */
@@ -1632,9 +1690,31 @@ export class Viewport {
     this.revision.setViewport(size);
   }
 
+  /**
+   * Frame `sphere` around its centre (the new orbit target), sized to the part of the view the
+   * floating left panel leaves free; the view offset (`applyViewOffset`) draws it in that part's
+   * middle.
+   */
   private fitPose(sphere: BoundingSphere): CameraPose {
-    const distance = fitDistance(sphere.radius, this.camera.fov, this.camera.aspect);
-    return { ...this.currentPose(), target: sphere.center, distance };
+    const pose = this.currentPose();
+    const { clientWidth: w, clientHeight: h } = this.container;
+    const distance =
+      w && h && this.leftCover > 0
+        ? fitInFreeArea(sphere.radius, this.camera.fov, w, h, this.leftCover)
+        : fitDistance(sphere.radius, this.camera.fov, this.camera.aspect);
+    return { ...pose, target: sphere.center, distance };
+  }
+
+  /**
+   * Shift the whole picture right by half the left panel's cover (a view offset: the projection
+   * moves, not the camera). Everything drawn or picked with `this.camera` follows; the view cube
+   * and `render_region` use their own cameras and get no shift.
+   */
+  private applyViewOffset(): void {
+    const { clientWidth: w, clientHeight: h } = this.container;
+    const shift = w && h ? freeAreaShift(w, this.leftCover) : 0;
+    if (shift > 0) this.camera.setViewOffset(w, h, -shift, 0, w, h);
+    else this.camera.clearViewOffset();
   }
 
   private currentPose(): CameraPose {
@@ -1772,19 +1852,13 @@ export class Viewport {
     if (this.viewCube.setHover(undefined)) this.requestRender();
   };
 
-  /** Pick radius in CSS px (vertex > edge > face within it). */
-  setPickRadius(px: number): void {
-    this.pickRadius = Math.max(0, px);
-    this.requestHover();
-  }
-
   /**
    * Entity under canvas position (`x`, `y`, CSS px from the canvas' top-left) as the
    * selection filter allows it, or undefined over background / hidden bodies / filtered-out
    * kinds. Synchronous: renders a small ID square and reads it back.
    */
   pick(x: number, y: number): PickHit | undefined {
-    if (this.meshOnly) return undefined; // T9.1: no entity selection on STL / 3MF
+    if (this.meshOnly) return undefined; // no entity selection on STL / 3MF
     const raw = this.rawPick(x, y);
     if (!raw) return undefined;
     const item = applyFilter(raw.ref, raw.body, this.filter);
@@ -1795,7 +1869,7 @@ export class Viewport {
   private rawPick(x: number, y: number): { ref: EntityRef; body: number } | undefined {
     const m = this.model;
     if (!m?.root.visible) return undefined;
-    const ref = m.picker.pick(this.renderer, this.camera, x, y, this.pickRadius);
+    const ref = m.picker.pick(this.renderer, this.camera, x, y, PICK_RADIUS);
     return ref && { ref, body: m.bodyOf[ref.kind][ref.id] ?? 0 };
   }
 
@@ -1954,6 +2028,7 @@ export class Viewport {
     window.removeEventListener('keyup', this.onBoxKey, { capture: true });
     this.boxOverlay.remove();
     this.pinOverlay.dispose();
+    this.dimensionOverlay.dispose();
     clearTimeout(this.pinSettleTimer);
     this.brushCursor.dispose();
     this.resizeObserver.disconnect();
@@ -1993,8 +2068,7 @@ export class Viewport {
       return;
     }
     if (e.ctrlKey) return; // pinch (or Ctrl+wheel): zoom
-    // Always classify so the stream state stays current even when the setting forces a kind.
-    const detected = this.wheelClassifier.classify({
+    const kind = this.wheelClassifier.classify({
       deltaX: e.deltaX,
       deltaY: e.deltaY,
       deltaMode: e.deltaMode,
@@ -2002,7 +2076,6 @@ export class Viewport {
       timeStamp: e.timeStamp,
       wheelDeltaY: (e as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY,
     });
-    const kind = this.scrollInput === 'auto' ? detected : this.scrollInput;
     if (kind !== 'trackpad') return;
 
     e.preventDefault();
@@ -2042,7 +2115,7 @@ export class Viewport {
     if (w === 0 || h === 0) return;
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.applyViewOffset(); // also updates the projection
     this.applyHighlightViewport();
     // Render synchronously so the canvas never shows a stretched frame while resizing.
     this.render();
@@ -2076,6 +2149,7 @@ export class Viewport {
     }
     this.renderer.render(this.scene, this.camera);
     this.movePins();
+    this.moveDimensions();
     this.viewCube.render(this.renderer, this.camera, this.container.clientWidth);
     this.onFrame?.(t0, performance.now() - t0);
   }

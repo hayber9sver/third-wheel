@@ -1,13 +1,13 @@
 /**
- * Comments (T4.2). Pure state — no DOM. A comment points at markers by id only (markers are
+ * Comments. Pure state — no DOM. A comment points at markers by id only (markers are
  * separate from comments): it may name any markers, none (a general
  * remark), and one marker may serve several comments. A deleted marker's id stays in the comment
  * (undoing the delete brings the link back); `liveMarkerIds` filters it for display.
  *
  * Every change reports `onEdit` with the state before and after (like `Markers`); the user's are
- * undoable, the AI's are not (T10.2). Undo / redo go through `apply`, which keeps later AI edits.
+ * undoable, the AI's are not. Undo / redo go through `apply`, which keeps later AI edits.
  *
- * Each comment has a thread of replies (T7.5), by the user or the AI. A user's reply on a
+ * Each comment has a thread of replies, by the user or the AI. A user's reply on a
  * resolved / won't-fix comment reopens it (Google Docs; the AI reads open comments by default).
  */
 import {
@@ -16,6 +16,7 @@ import {
   MAX_PART_ITEMS,
   MAX_PART_TEXT,
   MAX_REPLIES,
+  newId,
   nextReplyId,
   type CommentAuthor,
   type CommentReplyData,
@@ -24,7 +25,6 @@ import {
   type PartResult,
   type PartResultInput,
 } from '@third-wheel/core';
-import { maxNumber } from './markers.js';
 
 export interface Comment {
   readonly id: string;
@@ -35,11 +35,11 @@ export interface Comment {
   /** ISO 8601. */
   readonly createdAt: string;
   readonly updatedAt: string;
-  /** The thread, oldest first (T7.5). Missing = none. */
+  /** The thread, oldest first. Missing = none. */
   readonly replies?: readonly CommentReply[];
-  /** Other model files this comment is about, by file name (T7.4). Missing = none. */
+  /** Other model files this comment is about, by file name. Missing = none. */
   readonly linkedModels?: readonly string[];
-  /** The AI closed it; the user hasn't confirmed yet (T8.3). Missing = nothing to confirm. */
+  /** The AI closed it; the user hasn't confirmed yet. Missing = nothing to confirm. */
   readonly awaitingConfirm?: true;
   /** Parts the user asks the AI to add (part requests). Missing = none. */
   readonly parts?: readonly PartItemData[];
@@ -65,7 +65,7 @@ export interface CommentEdit {
   readonly id: string;
   readonly before: CommentsState;
   readonly after: CommentsState;
-  /** Who made it. The AI's edits are not undoable (T10.2: undo is the user's own steps). */
+  /** Who made it. The AI's edits are not undoable (undo is the user's own steps). */
   readonly by: CommentAuthor;
 }
 
@@ -117,7 +117,7 @@ export function commentsOnMarkers(
   return comments.filter((c) => c.markerIds.some((id) => markerIds.has(id)));
 }
 
-/** Open, or closed by the AI and not confirmed yet (T8.3): always shown. */
+/** Open, or closed by the AI and not confirmed yet: always shown. */
 export function needsAttention(c: Comment): boolean {
   return c.status === 'open' || c.awaitingConfirm === true;
 }
@@ -134,6 +134,23 @@ export function shownComments(
   return comments.filter((c) => showClosed || needsAttention(c) || keep.has(c.id));
 }
 
+/**
+ * Resolved markers: named by at least one comment, and every comment naming them is closed
+ * (resolved / won't fix, confirmed — the AI's unconfirmed close still counts as open). Worked out
+ * from the comments each time, never stored: reopening or undo brings a marker back by itself.
+ * A resolved marker is hidden (faded with "Show resolved") and can't be painted or added to.
+ */
+export function resolvedMarkerIds(comments: readonly Comment[]): Set<string> {
+  const closed = new Set<string>();
+  const open = new Set<string>();
+  for (const c of comments) {
+    const into = needsAttention(c) ? open : closed;
+    for (const id of c.markerIds) into.add(id);
+  }
+  for (const id of open) closed.delete(id);
+  return closed;
+}
+
 /** `c` without the awaiting-confirm flag. */
 function withoutConfirm(c: Comment): Comment {
   const next = { ...c };
@@ -147,9 +164,8 @@ function uniqueIds(ids: readonly string[]): string[] {
 
 export class Comments {
   private items: Comment[] = [];
-  private counter = 0;
   /**
-   * Highest reply number handed out per comment this session (T10.2): an undone reply's id is not
+   * Highest reply number handed out per comment this session: an undone reply's id is not
    * reused, so a later AI reply never takes it (undo / redo match replies by id).
    */
   private replyNumbers = new Map<string, number>();
@@ -158,26 +174,23 @@ export class Comments {
   /** Called for each change (all are undoable), before `onChange`. */
   onEdit: ((edit: CommentEdit) => void) | undefined;
 
-  constructor(private readonly now: () => Date = () => new Date()) {}
+  /** `makeId`: a new comment's id — random, unique in the project (tests pass a counter). */
+  constructor(
+    private readonly now: () => Date = () => new Date(),
+    private readonly makeId: () => string = () => newId(),
+  ) {}
 
-  /** Empty list (opening a model). Ids are not reused within a session. */
+  /** Empty list (opening a model). Ids are random: never reused. */
   reset(): void {
     this.items = [];
     this.replyNumbers.clear(); // a new model: the undo history is cleared too
     this.emit();
   }
 
-  /** Comments read from a sidecar (T5.1). Not undoable; new ids continue above the loaded ones. */
+  /** Comments read from a sidecar. Not undoable. */
   load(items: readonly Comment[]): void {
     this.items = [...items];
     this.replyNumbers.clear();
-    this.counter = Math.max(
-      this.counter,
-      maxNumber(
-        items.map((c) => c.id),
-        /^c(\d+)$/,
-      ),
-    );
     this.emit();
   }
 
@@ -215,10 +228,11 @@ export class Comments {
     const clean = cleanCommentText(text);
     if (clean === undefined) return undefined;
     const before = this.state();
-    this.counter += 1;
+    let id = this.makeId();
+    while (this.get(id)) id = this.makeId();
     const at = this.now().toISOString();
     const comment: Comment = {
-      id: `c${String(this.counter)}`,
+      id,
       text: clean,
       markerIds: uniqueIds(markerIds),
       status: 'open',
@@ -320,7 +334,7 @@ export class Comments {
       last?.author === author && last.text === clean && (last.status ?? old.status) === status;
     const full = (old.replies?.length ?? 0) >= MAX_REPLIES;
     const text = repeat || full ? undefined : clean;
-    // T8.3: the AI closing a comment waits for the user's Confirm; any user status ends that.
+    // The AI closing a comment waits for the user's Confirm; any user status ends that.
     const awaiting = author === 'ai' ? status !== 'open' : false;
     if (old.status === status && text === undefined && (old.awaitingConfirm === true) === awaiting)
       return false;
@@ -333,7 +347,7 @@ export class Comments {
   }
 
   /**
-   * The user agrees with the AI's resolved / won't fix (T8.3): the comment closes for good (hidden
+   * The user agrees with the AI's resolved / won't fix: the comment closes for good (hidden
    * unless "Show resolved"). Returns whether anything changed.
    */
   confirm(id: string): boolean {
@@ -444,7 +458,7 @@ export class Comments {
   /**
    * Takes back what one edit changed (`from` → `to` = its after → before for undo, before → after
    * for redo) without touching what happened since — the AI's replies and status changes are not
-   * on the undo history (T10.2), so a plain `restore` would wipe them.
+   * on the undo history, so a plain `restore` would wipe them.
    */
   apply(from: CommentsState, to: CommentsState): void {
     this.items = [...rebaseComments(this.items, from.items, to.items)];
@@ -489,7 +503,7 @@ const MERGED_FIELDS = [
 const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * Applies the change `from` → `to` onto `current` (T10.2): each field the change touched goes to
+ * Applies the change `from` → `to` onto `current`: each field the change touched goes to
  * its `to` value unless something else changed it since (then that later value stays); replies
  * merge by id, so replies added after the step stay. Comments the step added are removed (with
  * any later replies), comments it removed come back at their old place. Pure.

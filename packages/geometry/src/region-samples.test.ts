@@ -1,16 +1,11 @@
 /**
- * Optional check of region analysis (T6.1, core) and the review payload (T6.2) on real paint: every local STEP sample in
+ * Optional check of region analysis (core) and the review payload on real paint: every local STEP sample in
  * `test-models/` (or the folder in `THIRD_WHEEL_SAMPLES_DIR`) that has a sidecar next to it (not in CI):
  *   THIRD_WHEEL_SAMPLES=1 pnpm test packages/geometry
  * (`THIRD_WHEEL_SAMPLES=bracket` runs only files whose name contains `bracket`.)
  * Lives here, not in core, because it needs the STEP import.
  */
-import {
-  analyzeRegions,
-  faceAreas,
-  parseAnnotationsJson,
-  sidecarFileName,
-} from '@third-wheel/core';
+import { analyzeRegions, faceAreas, parseAnnotationsJson } from '@third-wheel/core';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OcctKernel } from 'occt-wasm';
@@ -29,7 +24,7 @@ const files =
         (f) =>
           /\.(step|stp)$/i.test(f) &&
           (filter === '1' || f.includes(filter)) &&
-          existsSync(join(dir, sidecarFileName(f))),
+          existsSync(join(dir, `${f}.thirdwheel.json`)),
       )
     : [];
 
@@ -37,7 +32,9 @@ describe.skipIf(files.length === 0)('region analysis on local samples', () => {
   it.each(files)(
     '%s: regions are consistent with the paint',
     async (file) => {
-      const parsed = parseAnnotationsJson(readFileSync(join(dir, sidecarFileName(file)), 'utf8'));
+      const parsed = parseAnnotationsJson(
+        readFileSync(join(dir, `${file}.thirdwheel.json`), 'utf8'),
+      );
       if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
       const kernel = await OcctKernel.init();
       const bytes = readFileSync(join(dir, file));
@@ -79,7 +76,7 @@ describe.skipIf(files.length === 0)('region analysis on local samples', () => {
         expect(parts).toBeCloseTo(r.area, 6);
       }
 
-      // Review payload (T6.2): compact on real, messy paint.
+      // Review payload: compact on real, messy paint.
       const t1 = performance.now();
       const text = reviewPayloadText(reviewPayload(model, parsed.data));
       const tokens = estimateTokens(text);

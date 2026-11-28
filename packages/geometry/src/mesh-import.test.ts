@@ -211,7 +211,7 @@ describe('parse3mf', () => {
   });
 });
 
-// A real STL: the test bracket's own tessellation written as binary STL (T16.0: our own models only),
+// A real STL: the test bracket's own tessellation written as binary STL (our own models only),
 // copied side by side to about the size of a printed part's STL (~90k triangles) for the speed check.
 describe('STL of the test bracket', () => {
   it('reads it quickly, every triangle in place', async () => {

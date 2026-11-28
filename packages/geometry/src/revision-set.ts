@@ -1,8 +1,8 @@
 /**
- * The revision test set (T8.0): a base part, before/after STEP pairs and an answer key
+ * The revision test set: a base part, before/after STEP pairs and an answer key
  * (`test-data/revisions/`, made by `scripts/make-revision-set.js`). This file reads the key,
  * builds the base model's annotations (what the app would save) and checks a transfer result
- * against the key, per pair: "found correctly" or why not. T8.2's transfer must pass every pair.
+ * against the key, per pair: "found correctly" or why not. The annotation transfer must pass every pair.
  *
  * Markers are located by geometry ({@link Locator}), never by id: ids change between revisions.
  */

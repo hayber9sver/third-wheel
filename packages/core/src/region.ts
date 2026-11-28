@@ -1,13 +1,13 @@
 /**
- * Region analysis (T6.1): numbers that describe one marker's paint, so the AI gets a summary
- * instead of raw triangles (T6.2) and a render can aim at it (T6.3).
+ * Region analysis: numbers that describe one marker's paint, so the AI gets a summary
+ * instead of raw triangles and a render can aim at it.
  *
  * Works on the sidecar form of paint (triangle runs + per-triangle piece trees), so it runs on a
  * saved file as well as on the live app state. Paint only: held entities are described separately:
  * a marker with no paint has no region, and faces the marker holds as entities are not
  * repeated in `stepFaces`.
  *
- * Units are the model's (mm). Numbers are not rounded here; the review payload (T6.2) does that.
+ * Units are the model's (mm). Numbers are not rounded here; the review payload does that.
  */
 import type { MarkerData, PieceTree } from './schema.js';
 
@@ -53,7 +53,7 @@ export interface RegionSummary {
   readonly avgNormal: Vec3;
   /**
    * Length of the area-weighted normal sum ÷ area: 1 = flat, near 0 = the paint faces all ways
-   * (e.g. all around a pin). Tells T6.3 whether one camera direction can show the region.
+   * (e.g. all around a pin). Tells `render_region` whether one camera direction can show the region.
    */
   readonly flatness: number;
   /**

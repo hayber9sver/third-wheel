@@ -1,6 +1,6 @@
 /**
- * Cheat sheet content (T2.7, regrouped in T10.3): six groups for one navigation style.
- * Pure data so it can be tested; `main.ts` renders it into the "?" panel.
+ * Cheat sheet content: six groups for one navigation style.
+ * Pure data so it can be tested; `wiring/view.ts` renders it into the "?" panel.
  */
 import { dictationLabel, shortcutLabel, undoRedoLabels } from '../../shared/shortcuts.js';
 import { FIT_KEY, PRESET_VIEWS } from './camera-views.js';
@@ -18,7 +18,7 @@ export interface HelpSection {
   readonly title: string;
   /** The few things most people need; always shown. */
   readonly rows: readonly HelpRow[];
-  /** The rest, folded under "More" (T10.3). */
+  /** The rest, folded under "More". */
   readonly more: readonly HelpRow[];
 }
 
@@ -89,12 +89,21 @@ function selectSection(style: NavigationStyle): HelpSection {
       { input: `${drag} left → right`, action: 'Box: add what is fully inside' },
       { input: `${drag} right → left`, action: 'Box: remove what is fully inside' },
       { input: 'Esc or double-click empty space', action: 'Clear the selection' },
+      {
+        input: 'Select 1 or 2 things',
+        action:
+          'Their size is drawn on the model; comment "make this 45 mm" and the AI gets the exact value',
+      },
     ],
     more: [
       ...(select
         ? [{ input: `${select.shortcut} ${select.label}`, action: 'The Select tool' }]
         : []),
-      { input: 'Double-click a part', action: 'Add / remove the whole body' },
+      {
+        input: 'Double-click an edge',
+        action: 'Add / remove the edges that continue it smoothly (a fillet’s outline)',
+      },
+      { input: 'Double-click a face', action: 'Add / remove the whole body' },
       { input: alt, action: 'Crossing: touching the box is enough' },
       {
         input: 'Right-click (no drag)',
@@ -110,7 +119,7 @@ function cursorText(tool: ToolDef): string {
   return 'circle on the surface = brush size (red dashed while Shift erases)';
 }
 
-/** Brush tools (T3.1): what each one does and what its cursor looks like. */
+/** Brush tools: what each one does and what its cursor looks like. */
 function paintSection(style: NavigationStyle): HelpSection {
   const brushes = TOOLS.filter((t) => t.cursor !== 'pick');
   const more: HelpRow[] = brushes.map((t) => ({
@@ -162,6 +171,11 @@ function notesSection(isMac: boolean): HelpSection {
       { input: '+ Selection on the active row', action: 'Add the selected entities to the marker' },
       { input: 'Click marked geometry', action: 'Tint the comments about it' },
       {
+        input: 'Resolve / Confirm the last open comment on a marker',
+        action:
+          'The marker is resolved: hidden, its ⚠ / ✕ flag cleared, no painting with it ("Show resolved" shows it faded; Reopen brings it back)',
+      },
+      {
         input: isMac ? '⌘ Enter / Esc' : 'Ctrl+Enter / Esc',
         action: 'In the comment box: post / cancel',
       },
@@ -181,11 +195,17 @@ function filesSection(isMac: boolean): HelpSection {
     rows: [
       {
         input: shortcutLabel('o', isMac),
-        action: 'Open a model (STEP; STL / 3MF: paint and comments only)',
+        action: 'Open a folder: its project (STEP models; STL / 3MF: paint and comments only)',
       },
-      { input: shortcutLabel('i', isMac), action: 'Import a new version — your notes move over' },
+      {
+        input: shortcutLabel('i', isMac),
+        action: 'Add a file: a new version (your notes move over) or a separate part',
+      },
       { input: 'Versions ▾', action: 'Compare with an earlier version, or open one' },
-      { input: '↻', action: 'Reload the shown file from disk' },
+      {
+        input: 'File ▸ Reload from disk',
+        action: 'Read the shown file again after you saved over it',
+      },
     ],
     more: [
       {
@@ -201,19 +221,24 @@ function aiSection(): HelpSection {
     title: 'AI',
     rows: [
       {
-        input: 'Send to AI',
-        action: "Answer the AI's review request, or copy a message to paste into your AI chat",
+        input: 'Send review',
+        action:
+          "Send your new comments to the agent in the Agent tab, answer the AI's review request, or (no agent connected) copy a message to paste into your AI chat",
       },
-      { input: 'AI status (bottom left)', action: 'Click: how to connect an AI agent' },
+      { input: 'AI status (bottom left)', action: 'Click: how to set up an AI agent' },
     ],
     more: [
-      { input: 'Text still in the comment box', action: 'Send to AI posts it first' },
+      { input: 'Text still in the comment box', action: 'Send review posts it first' },
+      {
+        input: 'Reply under a comment',
+        action: 'Goes to the listening agent at once; it answers in the thread',
+      },
       { input: 'Waiting for you', action: 'The AI closed a comment: ✓ Confirm or Reopen it' },
     ],
   };
 }
 
-/** Six short groups (T10.3): the few things most people need first, the rest under "More". */
+/** Six short groups: the few things most people need first, the rest under "More". */
 export function cheatSheet(style: NavigationStyle, isMac: boolean): HelpSection[] {
   return [
     viewSection(style),

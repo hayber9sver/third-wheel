@@ -1,4 +1,4 @@
-// Writes a synthetic large STEP assembly for performance checks (T1.5):
+// Writes a synthetic large STEP assembly for performance checks:
 //   node packages/geometry/scripts/make-large-step.js [out.step] [gridSize]
 // Each part is a filleted plate with holes and a torus boss (lots of curved faces, like real
 // printed parts). Default 21×21 = 441 parts ≈ 1M triangles at the default tessellation.

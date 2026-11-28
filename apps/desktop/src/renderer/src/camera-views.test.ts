@@ -6,6 +6,8 @@ import {
   easeInOut,
   FIT_KEY,
   fitDistance,
+  fitInFreeArea,
+  freeAreaShift,
   nearestScreenUp,
   orbitSetup,
   PRESET_VIEWS,
@@ -65,6 +67,32 @@ describe('fitDistance', () => {
     expect(square).toBeCloseTo(10 / Math.sin(Math.PI / 4), 9);
     expect(fitDistance(10, 90, 2)).toBeCloseTo(square, 9); // wide: vertical FOV limits
     expect(fitDistance(10, 90, 0.5)).toBeGreaterThan(square); // tall: horizontal FOV limits
+  });
+});
+
+describe('fitInFreeArea', () => {
+  it('without a cover: the plain fit', () => {
+    expect(fitInFreeArea(10, 60, 1000, 800, 0)).toBe(fitDistance(10, 60, 1000 / 800));
+  });
+
+  it('fits into the free width', () => {
+    expect(fitInFreeArea(10, 60, 960, 800, 480)).toBeCloseTo(fitDistance(10, 60, 480 / 800), 9);
+  });
+
+  it('a cover wider than the view leaves at least a pixel', () => {
+    expect(Number.isFinite(fitInFreeArea(10, 60, 300, 800, 900))).toBe(true);
+  });
+});
+
+describe('freeAreaShift', () => {
+  it('moves the picture by half the cover', () => {
+    expect(freeAreaShift(1000, 0)).toBe(0);
+    expect(freeAreaShift(960, 480)).toBe(240);
+    expect(freeAreaShift(1000, -20)).toBe(0);
+  });
+
+  it('a cover wider than the view is clamped to it', () => {
+    expect(freeAreaShift(300, 900)).toBe(149.5);
   });
 });
 

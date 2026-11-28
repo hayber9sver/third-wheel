@@ -17,7 +17,8 @@
   <body>
     <div class="app">
       <header class="toolbar" role="toolbar" aria-label="Tools">
-        <span class="brand">
+        <!-- The logo alone, no name (like Fusion / the slicers); the tooltip names the app. -->
+        <span class="brand" role="img" aria-label="Third Wheel" title="Third Wheel">
           <!-- small app icon (same drawing as assets/icons/, thicker strokes) -->
           <svg
             class="brand-icon"
@@ -68,32 +69,47 @@
               <circle cx="109" cy="98" r="5" fill="#1A1A1A" />
             </g>
           </svg>
-          <span class="brand-name">Third Wheel</span>
         </span>
         <span class="tb-sep" aria-hidden="true"></span>
         <button
           type="button"
           class="btn tb-btn"
           id="open-model"
-          aria-label="Open…"
-          title="Open a model file (STEP, STL, 3MF)"
+          aria-label="Open folder…"
+          title="Open a folder: its project"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           </svg>
-          <span class="tb-label">Open…</span>
+          <span class="tb-label">Open folder</span>
         </button>
         <button
           type="button"
-          class="btn icon-btn"
-          id="reload-model"
-          aria-label="Reload from disk"
-          title="Reload from disk: read the model file again after it changed"
-          disabled
+          class="btn tb-btn"
+          id="add-file"
+          aria-label="Add file…"
+          title="Add a file of this project: a new version of the shown model, or a separate part"
         >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M12.5 1.5v3h-3" />
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M14 3v6h6 M12 12v6 M9 15h6"
+            />
           </svg>
+          <span class="tb-label">Add file</span>
+        </button>
+        <button
+          type="button"
+          class="btn tb-btn"
+          id="parts-menu"
+          aria-label="Parts"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          title="Parts: open another part of this project"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 8 12 3 3 8v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8" />
+          </svg>
+          <span class="tb-label">Parts</span><span class="menu-caret" aria-hidden="true">▾</span>
         </button>
         <button
           type="button"
@@ -103,7 +119,7 @@
           aria-haspopup="menu"
           aria-expanded="false"
           aria-pressed="false"
-          title="Versions: import a new version, open or compare other versions"
+          title="Versions: open or compare other versions of this model"
           disabled
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -233,18 +249,102 @@
         </div>
         <div class="spacer"></div>
         <button type="button" class="btn send-ai" id="send-ai" disabled>
-          Send to AI<span class="send-ai-count" id="send-ai-count" hidden></span>
+          <span id="send-ai-label">Send review</span
+          ><span class="send-ai-count" id="send-ai-count" hidden></span>
         </button>
       </header>
 
       <!-- Parts library (library/library-panel.ts): floats over the 3D view; outside #viewport on purpose. -->
       <aside class="library-panel" id="library-panel" aria-label="Parts library" hidden></aside>
 
-      <aside class="panel panel-left" aria-label="Model">
-        <section class="panel-section" id="bodies" data-section="bodies">
-          <h2>Bodies</h2>
+      <!-- Floats over the 3D view (grid cell "viewport"); tabs Bodies | Agent. -->
+      <aside class="panel panel-left" id="left-panel" aria-label="Bodies and agent">
+        <div class="left-tabs" role="tablist" aria-label="Left panel">
+          <button
+            type="button"
+            class="left-tab"
+            id="tab-bodies"
+            role="tab"
+            aria-controls="bodies"
+            aria-selected="true"
+          >
+            Bodies
+          </button>
+          <button
+            type="button"
+            class="left-tab"
+            id="tab-chat"
+            role="tab"
+            aria-controls="chat"
+            aria-selected="false"
+          >
+            <span class="chat-dot" id="chat-tab-dot" data-dot="grey" aria-hidden="true"></span>
+            Agent<span class="chat-unread" id="chat-unread" hidden></span>
+          </button>
+          <button
+            type="button"
+            class="left-fold"
+            id="left-fold"
+            aria-label="Fold the panel"
+            title="Fold the panel"
+          >
+            ‹
+          </button>
+        </div>
+        <section class="panel-section left-tab-body" id="bodies" role="tabpanel">
+          <h2 class="visually-hidden">Bodies</h2>
           <p class="empty">No model loaded.</p>
         </section>
+        <section class="left-tab-body chat" id="chat" role="tabpanel" aria-label="Agent" hidden>
+          <div class="chat-state" id="chat-state" data-dot="grey">
+            <span class="chat-dot" aria-hidden="true"></span>
+            <span class="chat-state-text">No agent connected</span>
+            <button
+              type="button"
+              class="btn icon-btn chat-head-btn"
+              id="chat-new"
+              aria-label="New topic"
+              title="New topic"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+            </button>
+            <button
+              type="button"
+              class="btn icon-btn chat-head-btn"
+              id="chat-history"
+              aria-label="Earlier topics"
+              aria-haspopup="menu"
+              title="Earlier topics of this project"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M8 4.5V8l2.5 1.5" />
+              </svg>
+            </button>
+          </div>
+          <div class="chat-past" id="chat-past" hidden>
+            <span class="chat-past-title" id="chat-past-title"></span>
+            <button type="button" class="link-btn" id="chat-back">Back to current topic</button>
+          </div>
+          <div class="chat-log" id="chat-log" aria-live="polite"></div>
+          <div class="chat-compose" id="chat-compose">
+            <textarea id="chat-input" rows="2" aria-label="Message to the agent"></textarea>
+            <div class="chat-compose-row">
+              <span class="chat-send-key" id="chat-send-key"></span>
+              <button type="button" class="btn primary" id="chat-send">Send</button>
+            </div>
+          </div>
+          <div class="chat-locked" id="chat-locked" hidden></div>
+        </section>
+        <div
+          class="left-resize"
+          id="left-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the panel"
+          title="Drag to resize"
+          tabindex="0"
+        ></div>
       </aside>
 
       <main class="viewport" id="viewport" aria-label="3D viewport">
@@ -273,6 +373,7 @@
             <!-- app icon (assets/icons/); same colours in both themes -->
             <svg
               class="empty-logo"
+              id="empty-logo"
               width="160"
               height="160"
               xmlns="http://www.w3.org/2000/svg"
@@ -342,18 +443,39 @@
                 <circle cx="109" cy="98" r="3.4" fill="#1A1A1A" />
               </g>
             </svg>
-            <p class="empty-title">Third Wheel</p>
-            <p class="empty-text">
-              Open a STEP file (or an STL / 3MF mesh) to mark it up and talk it through with your
-              AI.
+            <p class="empty-title" id="empty-title">Third Wheel</p>
+            <p class="empty-folder" id="empty-folder" hidden></p>
+            <p class="empty-text" id="empty-text">
+              A project is a folder with your STEP files (or STL / 3MF meshes). Mark them up and
+              talk them through with your AI.
             </p>
-            <button type="button" class="btn primary" id="empty-open">Open…</button>
-            <p class="empty-hint">Or ask your AI agent to open one (<code>load_model</code>).</p>
-            <button type="button" class="link-btn" id="empty-connect">Connect an AI agent…</button>
+            <div class="empty-actions">
+              <button type="button" class="btn primary" id="empty-add-model" hidden>
+                Add file…
+              </button>
+              <button type="button" class="btn primary" id="empty-new-project">
+                New project folder
+              </button>
+              <button type="button" class="btn" id="empty-open">Open folder…</button>
+            </div>
+            <section
+              class="empty-recent"
+              id="empty-recent"
+              hidden
+              aria-labelledby="empty-recent-title"
+            >
+              <h2 class="empty-recent-title" id="empty-recent-title">Recent projects</h2>
+              <ul class="empty-recent-list" id="empty-recent-list"></ul>
+            </section>
+            <p class="empty-hint">
+              Or ask your AI agent to open a model (<code>load_model</code>).
+            </p>
+            <button type="button" class="link-btn" id="empty-connect">Set up your AI agent…</button>
             <p class="empty-version" id="empty-version" hidden>
               <span id="empty-version-number"></span> ·
               <a id="empty-version-link" target="_blank" rel="noopener noreferrer">Open source</a>
-              <span id="empty-version-licence"></span>
+              <span id="empty-version-licence"></span> ·
+              <button type="button" class="link-btn" id="empty-feedback">Send feedback</button>
             </p>
           </div>
         </div>
@@ -368,7 +490,7 @@
               <span class="ai-banner-text" id="ai-banner-text"></span>
               <div class="ai-banner-models" id="ai-banner-models" hidden></div>
             </div>
-            <button type="button" class="btn primary" id="ai-banner-send">Send to AI</button>
+            <button type="button" class="btn primary" id="ai-banner-send">Send review</button>
             <button
               type="button"
               class="notice-close"
@@ -427,6 +549,7 @@
           <h2 id="choice-title"></h2>
           <div class="alert-body"><p id="choice-text"></p></div>
           <form method="dialog" class="alert-buttons">
+            <button type="submit" class="btn" value="third" id="choice-third" hidden></button>
             <button type="submit" class="btn" value="second" id="choice-second"></button>
             <button
               type="submit"
@@ -442,71 +565,168 @@
           id="connect-dialog"
           aria-labelledby="connect-title"
         >
-          <h2 id="connect-title">Connect an AI agent</h2>
+          <h2 id="connect-title">Set up your AI agent</h2>
           <div class="alert-body">
-            <p>
-              Pick your AI agent. It talks to this app through its MCP server: set it up once, and
-              keep the app open while the agent works.
-            </p>
+            <p>Set it up once, then keep the app open while your agent works.</p>
             <p class="connect-missing" id="connect-missing" hidden></p>
-            <div class="agent-tabs" role="radiogroup" aria-label="AI agent" id="connect-agents">
-              <label
-                ><input type="radio" name="connect-agent" value="claude" checked />Claude
-                Code</label
-              >
-              <label><input type="radio" name="connect-agent" value="codex" />Codex</label>
-              <label><input type="radio" name="connect-agent" value="gemini" />Gemini CLI</label>
-              <label><input type="radio" name="connect-agent" value="cursor" />Cursor</label>
-              <label><input type="radio" name="connect-agent" value="vscode" />VS Code</label>
-              <label><input type="radio" name="connect-agent" value="other" />Other</label>
-            </div>
+            <!-- One tab per agent description file (apps/desktop/agents/), filled in by ai-connect.ts. -->
+            <div
+              class="agent-tabs"
+              role="radiogroup"
+              aria-label="AI agent"
+              id="connect-agents"
+            ></div>
             <div id="connect-panel-claude">
+              <div class="connect-scope">
+                <div class="segmented" role="radiogroup" aria-label="Where the tools show up">
+                  <label
+                    ><input type="radio" name="connect-scope" value="folder" checked /> This folder
+                    only</label
+                  >
+                  <label
+                    ><input type="radio" name="connect-scope" value="user" /> All my folders</label
+                  >
+                </div>
+                <span class="connect-info" id="connect-scope-hint" tabindex="0" role="note">ⓘ</span>
+              </div>
+              <div class="connect-folder" id="connect-folder-row">
+                <span>Folder</span>
+                <code id="connect-folder"></code>
+                <button type="button" class="btn" id="connect-choose-folder">Choose…</button>
+              </div>
+              <div class="connect-check" id="connect-check-row">
+                <span class="connect-check-label" id="connect-check" role="status"></span>
+                <details class="connect-why" id="connect-why" hidden>
+                  <summary>Why?</summary>
+                  <p id="connect-check-text"></p>
+                  <!-- One "Remove the entry in …" button per entry in the way (ai-connect.ts). -->
+                  <div class="connect-fixes" id="connect-fixes"></div>
+                  <div class="connect-confirm" id="connect-fix-confirm" hidden>
+                    <p class="connect-confirm-lead" id="connect-fix-text"></p>
+                    <div class="connect-confirm-buttons">
+                      <button type="button" class="btn primary" id="connect-fix-go">Remove</button>
+                      <button type="button" class="btn" id="connect-fix-cancel">Cancel</button>
+                    </div>
+                  </div>
+                  <p class="connect-result" id="connect-fix-result" role="status" hidden></p>
+                </details>
+              </div>
               <div class="connect-one-click">
                 <button type="button" class="btn primary" id="connect-claude" disabled>
-                  Looking for Claude Code…
+                  Looking…
                 </button>
                 <p class="connect-hint" id="connect-claude-hint"></p>
               </div>
+              <div class="connect-shell" id="connect-shell" hidden>
+                <button type="button" class="btn" id="connect-look-shell">
+                  Look again, using my terminal’s settings
+                </button>
+                <p class="connect-hint">Runs your shell’s start-up files (~/.zshrc) once.</p>
+              </div>
+              <div class="connect-confirm" id="connect-confirm" hidden>
+                <p class="connect-confirm-lead" id="connect-confirm-lead"></p>
+                <pre><code id="connect-steps"></code></pre>
+                <p class="connect-replace" id="connect-replace" hidden></p>
+                <details class="connect-details">
+                  <summary>Details</summary>
+                  <p class="connect-confirm-text" id="connect-confirm-text"></p>
+                </details>
+                <div class="connect-confirm-buttons">
+                  <button type="button" class="btn primary" id="connect-go">Add</button>
+                  <button type="button" class="btn" id="connect-cancel">Cancel</button>
+                </div>
+              </div>
               <p class="connect-result" id="connect-result" role="status" hidden></p>
-              <h3 id="connect-manual-title">Or run this once in a terminal</h3>
-              <div class="segmented" role="radiogroup" aria-label="Where the tools show up">
-                <label
-                  ><input type="radio" name="connect-scope" value="folder" checked /> This folder
-                  only</label
-                >
-                <label
-                  ><input type="radio" name="connect-scope" value="user" /> All my folders</label
-                >
-              </div>
-              <p class="connect-hint" id="connect-scope-hint"></p>
-              <div class="copy-box">
-                <code id="connect-command"></code>
-                <button type="button" class="btn" id="connect-copy-command">Copy</button>
-              </div>
-              <p class="connect-hint" id="connect-no-claude">
-                Terminal says “claude: command not found” or “is not recognized”? Use the
-                <code>.mcp.json</code> option below.
-              </p>
-              <h3>Or add it to a project's <code>.mcp.json</code></h3>
-              <div class="copy-box">
-                <pre><code id="connect-json"></code></pre>
-                <button type="button" class="btn" id="connect-copy-json">Copy</button>
-              </div>
-              <p class="connect-hint" id="connect-then"></p>
+              <details class="connect-manual" id="connect-manual">
+                <summary id="connect-manual-title">Set it up yourself</summary>
+                <h3>Run this once in a terminal</h3>
+                <div class="copy-box">
+                  <code id="connect-command"></code>
+                  <button type="button" class="btn" id="connect-copy-command">Copy</button>
+                </div>
+                <h3>Or add it to the folder’s <code>.mcp.json</code></h3>
+                <div class="copy-box">
+                  <pre><code id="connect-json"></code></pre>
+                  <button type="button" class="btn" id="connect-copy-json">Copy</button>
+                </div>
+                <p class="connect-hint" id="connect-then"></p>
+              </details>
             </div>
             <div id="connect-panel-agent" hidden>
               <div class="connect-one-click" id="connect-agent-one-click">
                 <button type="button" class="btn primary" id="connect-agent-button"></button>
                 <p class="connect-hint" id="connect-agent-hint"></p>
               </div>
-              <p class="connect-result" id="connect-agent-result" role="status" hidden></p>
-              <h3 id="connect-agent-title"></h3>
-              <div class="copy-box">
-                <pre><code id="connect-agent-text"></code></pre>
-                <button type="button" class="btn" id="connect-copy-agent">Copy</button>
+              <div class="connect-shell" id="connect-agent-shell" hidden>
+                <button type="button" class="btn" id="connect-agent-look-shell">
+                  Look again, using my terminal’s settings
+                </button>
+                <p class="connect-hint">Runs your shell’s start-up files (~/.zshrc) once.</p>
               </div>
-              <p class="connect-hint" id="connect-agent-where"></p>
+              <div class="connect-confirm" id="connect-agent-confirm" hidden>
+                <p class="connect-confirm-lead" id="connect-agent-confirm-lead"></p>
+                <pre><code id="connect-agent-steps"></code></pre>
+                <p class="connect-replace" id="connect-agent-replace" hidden></p>
+                <details class="connect-details">
+                  <summary>Details</summary>
+                  <p class="connect-confirm-text" id="connect-agent-confirm-text"></p>
+                </details>
+                <div class="connect-confirm-buttons">
+                  <button type="button" class="btn primary" id="connect-agent-go">Add</button>
+                  <button type="button" class="btn" id="connect-agent-cancel">Cancel</button>
+                </div>
+              </div>
+              <p class="connect-result" id="connect-agent-result" role="status" hidden></p>
+              <details class="connect-manual" id="connect-agent-manual">
+                <summary id="connect-agent-summary">Set it up yourself</summary>
+                <h3 id="connect-agent-title"></h3>
+                <div class="copy-box">
+                  <pre><code id="connect-agent-text"></code></pre>
+                  <button type="button" class="btn" id="connect-copy-agent">Copy</button>
+                </div>
+                <p class="connect-hint" id="connect-agent-where"></p>
+              </details>
             </div>
+            <!-- "Chat in Third Wheel": agents with a chat part in their description (connect-chat.ts). -->
+            <section
+              class="connect-chat"
+              id="connect-chat"
+              hidden
+              aria-labelledby="connect-chat-title"
+            >
+              <h3 id="connect-chat-title">Chat in Third Wheel</h3>
+              <ol class="connect-chat-steps">
+                <li>
+                  <span id="connect-chat-start-lead"></span>
+                  <div class="copy-box" id="connect-chat-start-box">
+                    <code id="connect-chat-start"></code>
+                    <button type="button" class="btn" id="connect-chat-copy-start">Copy</button>
+                  </div>
+                </li>
+                <li>
+                  <span>Paste this as its first message:</span>
+                  <div class="copy-box">
+                    <code id="connect-chat-phrase"></code>
+                    <button type="button" class="btn" id="connect-chat-copy-phrase">Copy</button>
+                  </div>
+                </li>
+              </ol>
+              <p class="connect-chat-status" id="connect-chat-status" role="status"></p>
+              <p class="connect-chat-warn" id="connect-chat-warn" hidden></p>
+              <details class="connect-allow" id="connect-allow">
+                <summary>Ask fewer permission questions</summary>
+                <p class="connect-hint" id="connect-allow-lead"></p>
+                <label class="connect-allow-cad"
+                  >Your CAD command <input type="text" id="connect-allow-cad" spellcheck="false"
+                /></label>
+                <pre class="connect-allow-preview"><code id="connect-allow-preview"></code></pre>
+                <p class="connect-hint" id="connect-allow-note"></p>
+                <button type="button" class="btn primary" id="connect-allow-go">
+                  Add these lines
+                </button>
+                <p class="connect-result" id="connect-allow-result" role="status" hidden></p>
+              </details>
+            </section>
             <p class="connect-last" id="connect-last"></p>
           </div>
           <form method="dialog" class="alert-buttons">
@@ -534,6 +754,38 @@
               Third-party licences
             </button>
             <button type="submit" class="btn primary" autofocus>OK</button>
+          </form>
+        </dialog>
+        <dialog
+          class="alert-dialog feedback-dialog"
+          id="feedback-dialog"
+          aria-labelledby="feedback-title"
+        >
+          <h2 id="feedback-title">Send feedback</h2>
+          <div class="alert-body">
+            <p>Good or bad, short is fine. Choose where to write it:</p>
+            <div class="feedback-places">
+              <button type="button" class="btn primary" id="feedback-form" autofocus>
+                Private form…
+              </button>
+              <span
+                >Google Form, a few questions, no account needed. Only the Third Wheel developer
+                reads it.</span
+              >
+              <button type="button" class="btn" id="feedback-github">GitHub issue…</button>
+              <span>Public, needs a GitHub account.</span>
+            </div>
+            <label class="feedback-setup">
+              <input type="checkbox" id="feedback-setup-on" checked />
+              <span>Fill in <span id="feedback-setup"></span></span>
+            </label>
+            <p class="feedback-note">
+              Your model, notes and chats are never sent. Your browser opens; you submit there.
+            </p>
+            <p class="feedback-status" id="feedback-status" role="status"></p>
+          </div>
+          <form method="dialog" class="alert-buttons">
+            <button type="submit" class="btn">Cancel</button>
           </form>
         </dialog>
         <div class="view-info" id="view-info" aria-label="Model info">

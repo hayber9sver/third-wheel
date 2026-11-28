@@ -1,6 +1,6 @@
 // `pnpm dev:open <model.step>` — start the app in dev mode and open that model right away.
 // Without a file it reopens the last one opened this way. Works on macOS and Windows
-// (sets the THIRD_WHEEL_OPEN dev hook from apps/desktop/src/main/index.ts).
+// (sets the THIRD_WHEEL_OPEN dev hook from apps/desktop/src/main/wiring/app-lifecycle.ts).
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

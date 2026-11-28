@@ -1,10 +1,10 @@
 /**
- * Offscreen region picture (T6.3): the whole model in plain grey with dark B-rep edges on white,
+ * Offscreen region picture: the whole model in plain grey with dark B-rep edges on white,
  * the requested markers' paint and held entities in their own colours, seen
  * by an orthographic camera (`RegionView`, region-view.ts). Draws with the app's WebGLRenderer
  * into its own render target and scene, so the user's view is untouched; the scene shares the
  * model's GPU vertex buffers (no copies). All bodies are drawn, also ones hidden in the app.
- * Bodies in front of the region (T6.5, region-occlusion.ts) are ghosted: faint see-through faces
+ * Bodies in front of the region (region-occlusion.ts) are ghosted: faint see-through faces
  * and edges, so the region shows through them and the AI still sees they are there.
  */
 import {
@@ -37,7 +37,7 @@ import type { RegionView } from './region-view.js';
 const BACKGROUND = 0xffffff;
 const FACE = 0xc3c8d0; // light theme face colour
 const EDGE = 0x1c1f24;
-/** Opacity of ghosted bodies' faces / edges (T6.5): there, but clearly not the subject. */
+/** Opacity of ghosted bodies' faces / edges: there, but clearly not the subject. */
 const GHOST_FACE_OPACITY = 0.12;
 const GHOST_EDGE_OPACITY = 0.2;
 
@@ -49,7 +49,7 @@ export interface RegionDraw {
   readonly entities: readonly ShownEntity[];
   /** Paint (must match the model's triangles); undefined = no paint. */
   readonly layer: PaintLayer | undefined;
-  /** Bodies drawn ghosted (in front of the region, T6.5). */
+  /** Bodies drawn ghosted (in front of the region). */
   readonly ghost: readonly number[];
 }
 
@@ -179,7 +179,7 @@ export class RegionRenderer {
 
   /**
    * Compiles the picture's shaders for its render target in the background, so the AI's first
-   * `render_region` doesn't wait 15–300 ms for them (backlog, T6.3 review). `size`: the picture
+   * `render_region` doesn't wait 15–300 ms for them. `size`: the picture
    * size to allocate the target for (the default `regionSize()`).
    */
   warm(renderer: WebGLRenderer, size: number): Promise<unknown> {
@@ -246,7 +246,7 @@ export function flipRows(raw: Uint8Array, size: number): Uint8Array {
 
 /**
  * RGBA top-down pixels (`width` × `height`) → PNG bytes (browser encoder). `overlay` draws on
- * top before encoding (contact sheet labels, T6.4).
+ * top before encoding (contact sheet labels).
  */
 export async function encodePng(
   rgba: Uint8Array,

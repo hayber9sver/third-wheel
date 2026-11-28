@@ -59,7 +59,7 @@ describe('ReviewRequests', () => {
     });
   });
 
-  it('covers several models; Send answers with the total and a count per model (T7.4)', async () => {
+  it('covers several models; Send answers with the total and a count per model', async () => {
     const r = new ReviewRequests();
     const req = r.request([abc, model('def'), abc], 'Two parts');
     expect(req.models.map((m) => m.modelId)).toEqual(['abc', 'def']);

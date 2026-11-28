@@ -1,5 +1,5 @@
 /**
- * Marker entities in the viewport (T3.7): the exact vertices / edges / faces / bodies markers hold,
+ * Marker entities in the viewport: the exact vertices / edges / faces / bodies markers hold,
  * drawn in their marker's colour, so they read differently from paint (solid colour):
  * - face: see-through tint + thick outline along its border;
  * - body: fainter tint + its B-rep edges as thin lines;

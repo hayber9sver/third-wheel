@@ -1,5 +1,5 @@
 /**
- * GPU ID picking (T2.1). A separate scene draws faces, edges and B-rep vertices with their ids as
+ * GPU ID picking. A separate scene draws faces, edges and B-rep vertices with their ids as
  * colours (pick-resolve.ts has the encoding). Only a small square around the cursor is rendered —
  * the camera's view offset crops the picture — into a tiny offscreen target, then read back.
  *
@@ -165,7 +165,7 @@ export class Picker {
   }
 
   /**
-   * Selection filter (T2.3): leave vertices / edges out of the pass. Faces are always drawn, so
+   * Selection filter: leave vertices / edges out of the pass. Faces are always drawn, so
    * they still hide what is behind them.
    */
   setPassKinds(kinds: { readonly vertex: boolean; readonly edge: boolean }): void {
@@ -176,6 +176,7 @@ export class Picker {
   /**
    * Entity at canvas position (`x`, `y`, CSS px from the top-left) for `camera`. Vertices and
    * edges within `radius` CSS px win over the face under the cursor (vertex > edge > face).
+   * A view offset on `camera` that shifts its full-size picture (the left panel's) is kept.
    */
   pick(
     renderer: WebGLRenderer,
@@ -193,13 +194,17 @@ export class Picker {
       this.target = new WebGLRenderTarget(size, size);
       this.pixels = new Uint8Array(size * size * 4);
     }
-    // Crop the full picture to the size×size device pixels centred on the cursor.
+    // Crop the full picture to the size×size device pixels centred on the cursor, counted in the
+    // camera's own (shifted) picture when it has a view offset.
+    const view = camera.view?.enabled ? camera.view : undefined;
+    const shiftX = view ? (view.offsetX / view.fullWidth) * canvas.width : 0;
+    const shiftY = view ? (view.offsetY / view.fullHeight) * canvas.height : 0;
     this.camera.copy(camera);
     this.camera.setViewOffset(
       canvas.width,
       canvas.height,
-      Math.floor(x * dpr) - r, // the device pixel under the cursor
-      Math.floor(y * dpr) - r,
+      Math.floor(x * dpr + shiftX) - r, // the device pixel under the cursor
+      Math.floor(y * dpr + shiftY) - r,
       size,
       size,
     );
@@ -219,14 +224,14 @@ export class Picker {
   }
 
   /**
-   * ID buffer of a canvas rectangle (CSS px, top-left origin) for box select (T2.4): one pass per
+   * ID buffer of a canvas rectangle (CSS px, top-left origin) for box select: one pass per
    * kind, each drawn over the faces only, so an edge or vertex never hides a small face and a
    * vertex dot never hides a short edge. Returns the RGBA bytes of every pass (faces always).
    *
    * Each pass draws the **whole view** and reads back only the rectangle. Drawing just the
    * rectangle (camera view offset) changes the projection with the box size, and tiny edges that
    * lie exactly on a surface (e.g. knurling) then flip between visible and hidden — a box could
-   * select an edge and a slightly bigger box fail to remove it (T2.6).
+   * select an edge and a slightly bigger box fail to remove it.
    */
   renderRegion(
     renderer: WebGLRenderer,
@@ -241,8 +246,7 @@ export class Picker {
     const w = Math.max(1, Math.min(canvas.width - x, Math.ceil(rect.x1 * dpr) - x));
     const h = Math.max(1, Math.min(canvas.height - y, Math.ceil(rect.y1 * dpr) - y));
     const target = new WebGLRenderTarget(canvas.width, canvas.height);
-    this.camera.copy(camera);
-    this.camera.clearViewOffset();
+    this.camera.copy(camera); // keeps the camera's view offset (the left panel's shift)
     // Render targets are read with a bottom-left origin.
     const readY = canvas.height - y - h;
     this.pointSize.value = VERTEX_POINT_PX * dpr;

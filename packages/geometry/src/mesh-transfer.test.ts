@@ -18,7 +18,7 @@ import { importStep } from './step-import.js';
 import { transferMeshAnnotations } from './transfer.js';
 import { at3, cross, len, sub, type V3 } from './vec.js';
 
-// T9.2: a mesh (STL) export of the test bracket, turned Y-up and moved as many exporters do,
+// A mesh (STL) export of the test bracket, turned Y-up and moved as many exporters do,
 // painted in mesh-only mode; its paint must land on the STEP's faces.
 const dir = new URL('../test-data/revisions/', import.meta.url);
 const set = parseRevisionSet(JSON.parse(readFileSync(new URL('revisions.json', dir), 'utf8')));

@@ -1,5 +1,5 @@
 /**
- * Selection filter (T2.3), pure: which entity kinds hover/click may pick, like the selection
+ * Selection filter, pure: which entity kinds hover/click may pick, like the selection
  * filter in a CAD tool. Applies to new picks only; the current selection is left alone.
  */
 import type { EntityRef } from './pick-resolve.js';

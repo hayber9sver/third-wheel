@@ -1,5 +1,5 @@
 /**
- * Which model file a launch asks to open (T11.3): the first command-line argument with a model
+ * Which model file a launch asks to open: the first command-line argument with a model
  * extension (`third-wheel part.step`, Windows "Open with"), resolved against the launch's folder.
  * Flags (`--user-data-dir=…`) and Electron's own arguments (`.`, the app path) are skipped; a flag
  * whose value is a separate argument (`--x part.step`) would be taken as the file (none in use).

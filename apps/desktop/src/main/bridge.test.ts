@@ -2,6 +2,7 @@
  * App bridge over a real localhost socket: the app side (`bridge.ts`) with the MCP server's
  * client (`@third-wheel/mcp-server`). The window round-trip is covered by the e2e test.
  */
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +14,13 @@ import {
 } from '@third-wheel/mcp-server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { BridgeMethodError, startBridge, type Bridge } from './bridge.js';
+import {
+  BridgeMethodError,
+  restrictToUser,
+  startBridge,
+  type Bridge,
+  type BridgeHandler,
+} from './bridge.js';
 
 let dir: string;
 let filePath: string;
@@ -31,7 +38,7 @@ afterEach(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function start(handlers: Record<string, (params: unknown) => unknown> = {}): Promise<Bridge> {
+async function start(handlers: Record<string, BridgeHandler> = {}): Promise<Bridge> {
   const bridge = await startBridge({ filePath, version: '1.2.3', handlers });
   bridges.push(bridge);
   return bridge;
@@ -72,6 +79,29 @@ function rawStatus(port: number, headers: Record<string, string>): Promise<numbe
 }
 
 describe('app bridge', () => {
+  it('tells a handler when the caller closes its connection (a cancelled tool call)', async () => {
+    let signal: AbortSignal | undefined;
+    const aborted = new Promise<void>((resolve) => {
+      void start({
+        hold: (_params, context) => {
+          signal = context.signal;
+          context.signal.addEventListener('abort', () => {
+            resolve();
+          });
+          return new Promise(() => undefined);
+        },
+      }).then(async () => {
+        const client = await connect();
+        void client.call('hold', {}).catch(() => undefined);
+        await new Promise((r) => setTimeout(r, 50));
+        expect(signal?.aborted).toBe(false);
+        client.close();
+      });
+    });
+    await aborted;
+    expect(signal?.aborted).toBe(true);
+  });
+
   it('writes a bridge file with port and token, readable only by the user', async () => {
     const bridge = await start();
     const file = await readBridgeFile(filePath);
@@ -84,6 +114,48 @@ describe('app bridge', () => {
     });
     expect(file.token).toMatch(/^[0-9a-f]{64}$/);
     if (process.platform !== 'win32') expect(statSync(filePath).mode & 0o777).toBe(0o600);
+    else {
+      // Windows ignores the mode: the access list must hold this user, nothing inherited, and no
+      // other account. An elevated process (CI runs as an administrator) also gets SYSTEM and
+      // Administrators on the files it creates: they can open any file anyway, so they may stay.
+      const acl = execFileSync('icacls', [filePath], { encoding: 'utf8' });
+      const entries = acl.split(/\r?\n/).filter((line) => /:\([A-Z,()]+\)\s*$/.test(line));
+      const user = process.env['USERNAME'] ?? '';
+      expect(
+        entries.filter((e) => e.includes(user)),
+        acl,
+      ).toHaveLength(1);
+      const others = entries.filter(
+        (e) => !e.includes(user) && !/NT AUTHORITY\\SYSTEM:|BUILTIN\\Administrators:/.test(e),
+      );
+      expect(others, acl).toEqual([]);
+      expect(acl).not.toContain('(I)');
+    }
+  });
+
+  it('on Windows asks icacls to drop inherited access and grant only the user; elsewhere does nothing', () => {
+    const calls: { file: string; args: readonly string[] }[] = [];
+    const run = (file: string, args: readonly string[]) => calls.push({ file, args });
+    const env = { USERNAME: 'Ana', USERDOMAIN: 'PC1' };
+    expect(restrictToUser('C:\\t\\bridge.json', 'darwin', run, env)).toBe(false);
+    expect(calls).toEqual([]);
+    expect(restrictToUser('C:\\t\\bridge.json', 'win32', run, env)).toBe(true);
+    expect(calls).toEqual([
+      {
+        file: 'C:\\Windows\\System32\\icacls.exe',
+        args: ['C:\\t\\bridge.json', '/inheritance:r', '/grant:r', 'PC1\\Ana:F'],
+      },
+    ]);
+    const failing = () => {
+      throw new Error('icacls missing');
+    };
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      expect(restrictToUser('x', 'win32', failing, env)).toBe(false);
+    } finally {
+      console.warn = warn;
+    }
   });
 
   it('answers requests, overlapping ones by id', async () => {

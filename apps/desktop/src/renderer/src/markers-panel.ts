@@ -1,10 +1,10 @@
 /**
- * Markers section in the right panel (T3.2), layer-list style: one row per marker with
+ * Markers section in the right panel, layer-list style: one row per marker with
  * [eye] [colour swatch] [name] [×]. Clicking a row makes it the active marker (what Brush paints
  * with); double-click or F2 renames; the swatch opens 8 fixed colours + "Custom…"; "+ Add" in the
- * heading adds the next marker. Delete doesn't ask: it can be undone (T3.5).
+ * heading adds the next marker. Delete doesn't ask: it can be undone.
  *
- * T3.7: markers also hold exact entities. The active row has "+ Selection" (adds the current
+ * Markers also hold exact entities. The active row has "+ Selection" (adds the current
  * selection); a row holding entities shows "N items ▸", which opens the list under the row
  * (closed by default): hover highlights an entity in the view, click selects it, × removes it.
  */
@@ -19,7 +19,7 @@ import {
 } from './markers.js';
 import type { SelectionItem } from './selection.js';
 
-/** What the panel needs from the rest of the app for marker entities (T3.7). */
+/** What the panel needs from the rest of the app for marker entities. */
 export interface MarkerEntityHooks {
   /** Adds the current selection to the marker. */
   addSelection(markerId: string): void;
@@ -31,8 +31,22 @@ export interface MarkerEntityHooks {
   select(item: SelectionItem): void;
   /** "✓ Place here" on a "? Check" marker: paint / hold its ghost where it is drawn. */
   placeTransfer?(markerId: string): void;
-  /** Pointer over a marker's rows (undefined = left the list): its ghost is drawn bold (T8.3). */
+  /** Pointer over a marker's rows (undefined = left the list): its ghost is drawn bold. */
   hoverMarker?(markerId: string | undefined): void;
+  /** Resolved markers (every comment on them closed): dimmed row, "✓ Resolved", can't be added to. */
+  resolved?(): ReadonlySet<string>;
+  /**
+   * Markers that hold nothing on the shown version but a comment uses (comments are shared by all
+   * versions): faded row, so they don't look like markers painted here.
+   */
+  bare?(): ReadonlySet<string>;
+  /** A short message in the status area (a rename left with a taken name). */
+  notice?(text: string): void;
+}
+
+/** A rename refused: another marker of the project has the name (case ignored). */
+export function takenNameText(name: string): string {
+  return `There's already a marker called "${name}" — pick another name.`;
 }
 
 const NO_HOOKS: MarkerEntityHooks = {
@@ -81,7 +95,7 @@ function dropButton(m: Marker): HTMLButtonElement {
 }
 
 /**
- * Status of a marker moved from the previous version (T8.2); click = looks right (⚠ Changed),
+ * Status of a marker moved from the previous version; click = looks right (⚠ Changed),
  * dismiss (✕ Lost) or place here (? Check).
  */
 function transferBadge(m: Marker): HTMLButtonElement {
@@ -104,7 +118,20 @@ function transferBadge(m: Marker): HTMLButtonElement {
   return b;
 }
 
+/** "✓ Resolved" on a marker whose comments are all closed. */
+function resolvedTag(): HTMLSpanElement {
+  const tag = document.createElement('span');
+  tag.className = 'marker-resolved-tag';
+  tag.textContent = '✓ Resolved';
+  tag.title =
+    'All comments on this marker are closed: hidden in the view. Tick “Show resolved” under Comments to see it faded; reopen a comment to use it again.';
+  return tag;
+}
+
 export class MarkersPanel {
+  /** Resolved markers at the last render. */
+  private resolved: ReadonlySet<string> = new Set();
+  private bare: ReadonlySet<string> = new Set();
   private readonly list = document.createElement('ul');
   private readonly empty: HTMLElement;
   private readonly menu = document.createElement('div');
@@ -118,11 +145,11 @@ export class MarkersPanel {
   /** Markers whose entity list is open. */
   private readonly expanded = new Set<string>();
   private selectionSize = 0;
-  /** STL / 3MF shown: no entities to add, so no "+ Selection" (T12.4). */
+  /** STL / 3MF shown: no entities to add, so no "+ Selection". */
   private meshOnly = false;
   /** Entity row under the pointer (key), so a redraw can end the view hover. */
   private hoveredEntity: string | undefined;
-  /** Marker whose rows are under the pointer (T8.3 ghost emphasis). */
+  /** Marker whose rows are under the pointer (its ghosts are emphasised). */
   private hoveredMarker: string | undefined;
 
   constructor(
@@ -264,6 +291,8 @@ export class MarkersPanel {
   render(): void {
     const items = this.markers.list();
     const active = this.markers.active()?.id;
+    this.resolved = this.hooks.resolved?.() ?? new Set();
+    this.bare = this.hooks.bare?.() ?? new Set();
     this.empty.hidden = items.length > 0;
     this.list.hidden = items.length === 0;
     if (this.renaming !== undefined && !this.markers.get(this.renaming)) this.renaming = undefined;
@@ -300,11 +329,18 @@ export class MarkersPanel {
     li.tabIndex = 0;
     li.className = 'marker-row';
     li.classList.toggle('active', isActive);
-    li.classList.toggle('marker-hidden', !m.visible);
+    const resolved = this.resolved.has(m.id);
+    li.classList.toggle('marker-hidden', !m.visible || resolved);
+    const bare = !resolved && this.bare.has(m.id);
+    li.classList.toggle('marker-bare', bare);
     if (isActive) li.setAttribute('aria-current', 'true');
-    li.title = isActive
-      ? `${m.name} — Brush paints with this marker`
-      : `${m.name} — click to paint with it, double-click to rename`;
+    li.title = resolved
+      ? `${m.name} — all its comments are closed, so it is hidden and can't be painted`
+      : bare
+        ? `${m.name} — no paint on this version. A comment uses it; it may be painted on another version.`
+        : isActive
+          ? `${m.name} — Brush paints with this marker`
+          : `${m.name} — click to paint with it, double-click to rename`;
 
     const eye = document.createElement('button');
     eye.type = 'button';
@@ -334,8 +370,30 @@ export class MarkersPanel {
       input.maxLength = 60;
       input.setAttribute('aria-label', 'Marker name');
       let done = false;
-      const finish = (commit: boolean): void => {
+      let error: HTMLLIElement | undefined;
+      const finish = (commit: boolean, viaEnter = false): void => {
         if (done) return;
+        // Names are unique in the project (Finder-style): Enter on a taken name keeps the field
+        // open with the reason under it; leaving the field keeps the old name and says why.
+        const taken = commit ? this.markers.takenBy(input.value, m.id) : undefined;
+        if (taken !== undefined && viaEnter) {
+          input.setAttribute('aria-invalid', 'true');
+          if (!error) {
+            error = document.createElement('li');
+            error.className = 'marker-name-error';
+            error.setAttribute('role', 'alert');
+            error.id = `marker-name-error-${m.id}`;
+            input.setAttribute('aria-describedby', error.id);
+            li.after(error);
+          }
+          error.textContent = takenNameText(taken);
+          input.select();
+          return;
+        }
+        if (taken !== undefined) {
+          this.hooks.notice?.(`Name not changed. ${takenNameText(taken)}`);
+          commit = false;
+        }
         done = true;
         this.renaming = undefined;
         if (!commit || !this.markers.rename(m.id, input.value)) this.render();
@@ -345,8 +403,15 @@ export class MarkersPanel {
         const focusId = next ?? m.id;
         this.list.querySelector<HTMLElement>(`li[data-marker="${focusId}"]`)?.focus();
       };
+      input.addEventListener('input', () => {
+        if (!error) return;
+        error.remove();
+        error = undefined;
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+      });
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') finish(true);
+        if (e.key === 'Enter') finish(true, true);
         else if (e.key === 'Escape') {
           e.stopPropagation(); // Esc cancels the rename only
           finish(false);
@@ -375,6 +440,7 @@ export class MarkersPanel {
     del.append(icon(CROSS));
 
     li.append(eye, swatch, name);
+    if (resolved) li.append(resolvedTag());
     if (m.transfer) li.append(transferBadge(m));
     if (m.transfer?.status === 'check') li.append(dropButton(m));
     const n = m.entities.length;
@@ -395,6 +461,7 @@ export class MarkersPanel {
       add.className = 'marker-row-btn marker-add-selection';
       add.dataset.action = 'add-selection';
       add.textContent = '+ Selection';
+      add.dataset.resolved = String(resolved);
       this.updateAddSelection(add);
       li.append(add);
     }
@@ -402,7 +469,7 @@ export class MarkersPanel {
     return li;
   }
 
-  /** Mesh-only mode (T12.4): rows have no "+ Selection" (a mesh has no entities to hold). */
+  /** Mesh-only mode: rows have no "+ Selection" (a mesh has no entities to hold). */
   setMeshOnly(on: boolean): void {
     if (this.meshOnly === on) return;
     this.meshOnly = on;
@@ -417,9 +484,11 @@ export class MarkersPanel {
   }
 
   private updateAddSelection(add: HTMLButtonElement): void {
-    add.disabled = this.selectionSize === 0;
-    add.title =
-      this.selectionSize === 0
+    const resolved = add.dataset.resolved === 'true';
+    add.disabled = this.selectionSize === 0 || resolved;
+    add.title = resolved
+      ? 'All comments on this marker are closed: reopen one to add to it, or pick another marker'
+      : this.selectionSize === 0
         ? 'Select vertices, edges, faces or bodies first, then add them to this marker'
         : 'Add the selected items to this marker (or right-click them in the view)';
   }

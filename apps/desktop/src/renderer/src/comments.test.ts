@@ -1,11 +1,13 @@
 import { MAX_LINKED_MODELS, type PartItemData } from '@third-wheel/core';
 import { describe, expect, it } from 'vitest';
+import { counterIds } from './markers.js';
 import {
   cleanCommentText,
   Comments,
   commentsOnMarkers,
   liveMarkerIds,
   nextCommentMarkerName,
+  resolvedMarkerIds,
   shownComments,
   type CommentEdit,
 } from './comments.js';
@@ -32,7 +34,7 @@ describe('nextCommentMarkerName', () => {
 
 describe('Comments', () => {
   it('adds open human comments with ids, times and unique markers', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const a = c.add(' Fillet this ', ['m1', 'm2', 'm1']);
     expect(a).toMatchObject({ id: 'c1', text: 'Fillet this', markerIds: ['m1', 'm2'] });
     expect(a).toMatchObject({ status: 'open', author: 'human' });
@@ -45,7 +47,7 @@ describe('Comments', () => {
   });
 
   it('edits text and markers; no-op edits change nothing', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const edits: CommentEdit[] = [];
     c.onEdit = (e) => edits.push(e);
     c.add('one', ['m1']);
@@ -60,8 +62,8 @@ describe('Comments', () => {
     expect(edits.map((e) => e.kind)).toEqual(['add', 'edit']);
   });
 
-  it('links other model files; an empty list leaves the field out (T7.4)', () => {
-    const c = new Comments(clock());
+  it('links other model files; an empty list leaves the field out', () => {
+    const c = new Comments(clock(), counterIds('c'));
     c.add('fits?', [], 'human', ['lid.step', 'lid.step']);
     expect(c.get('c1')?.linkedModels).toEqual(['lid.step']);
     expect(c.edit('c1', { linkedModels: ['lid.step'] })).toBe(false);
@@ -79,7 +81,7 @@ describe('Comments', () => {
   });
 
   it('sets status; a note becomes a reply carrying the status (one undo step)', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const edits: CommentEdit[] = [];
     c.onEdit = (e) => edits.push(e);
     c.add('x', []);
@@ -95,7 +97,7 @@ describe('Comments', () => {
     expect(c.get('c1')?.replies).toHaveLength(2);
     // A retry with the same note adds no second copy.
     expect(c.setStatus('c1', 'resolved', 'also the other side', 'ai')).toBe(false);
-    // The user resolving what the AI resolved = confirming it (T8.3); then nothing left to do.
+    // The user resolving what the AI resolved = confirming it; then nothing left to do.
     expect(c.setStatus('c1', 'resolved')).toBe(true);
     expect(c.get('c1')).not.toHaveProperty('awaitingConfirm');
     expect(c.setStatus('c1', 'resolved')).toBe(false);
@@ -104,8 +106,8 @@ describe('Comments', () => {
     expect(c.setStatus('nope', 'wontfix')).toBe(false);
   });
 
-  it('the AI closing a comment waits for the user to confirm (T8.3)', () => {
-    const c = new Comments(clock());
+  it('the AI closing a comment waits for the user to confirm', () => {
+    const c = new Comments(clock(), counterIds('c'));
     const edits: CommentEdit[] = [];
     c.onEdit = (e) => edits.push(e);
     c.add('x', []);
@@ -133,7 +135,7 @@ describe('Comments', () => {
   });
 
   it('replies: AI keeps the status, the user reopens a closed comment', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     c.add('x', []);
     c.setStatus('c1', 'resolved');
     const ai = c.reply('c1', ' Which side? ', 'ai');
@@ -150,7 +152,7 @@ describe('Comments', () => {
   });
 
   it('edits and deletes replies (undoable)', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const edits: CommentEdit[] = [];
     c.onEdit = (e) => edits.push(e);
     c.add('x', []);
@@ -186,7 +188,7 @@ describe('Comments', () => {
   });
 
   it('removes, and restore puts any earlier state back (undo)', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const edits: CommentEdit[] = [];
     c.onEdit = (e) => edits.push(e);
     c.add('a', []);
@@ -205,7 +207,7 @@ describe('Comments', () => {
   });
 
   it('reset empties the list without an edit', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     c.add('a', []);
     let edited = false;
     c.onEdit = () => (edited = true);
@@ -216,7 +218,7 @@ describe('Comments', () => {
 });
 
 describe('filters', () => {
-  const c = new Comments(clock());
+  const c = new Comments(clock(), counterIds('c'));
   c.add('a', ['m1']);
   c.add('b', ['m2', 'm3']);
   c.add('c', []);
@@ -243,10 +245,40 @@ describe('filters', () => {
   });
 });
 
-describe('AI edits and undo (T10.2)', () => {
-  /** Comments wired like main.ts: user edits on a stack, AI edits not; undo / redo via `apply`. */
+describe('resolvedMarkerIds', () => {
+  it('a marker is resolved once every comment on it is closed', () => {
+    const c = new Comments(clock(), counterIds('c'));
+    c.add('a', ['m1']);
+    c.add('b', ['m1', 'm2']);
+    c.add('general', []);
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set());
+    c.setStatus('c2', 'resolved');
+    // m1 still has the open c1; m2 only had c2.
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set(['m2']));
+    c.setStatus('c1', 'wontfix');
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set(['m1', 'm2']));
+    c.setStatus('c1', 'open'); // reopen brings it back
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set(['m2']));
+  });
+
+  it("the AI's close waits for your Confirm", () => {
+    const c = new Comments(clock(), counterIds('c'));
+    c.add('a', ['m1']);
+    c.setStatus('c1', 'resolved', 'added a fillet', 'ai');
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set());
+    c.confirm('c1');
+    expect(resolvedMarkerIds(c.list())).toEqual(new Set(['m1']));
+  });
+
+  it('markers without comments are never resolved', () => {
+    expect(resolvedMarkerIds([])).toEqual(new Set());
+  });
+});
+
+describe('AI edits and undo', () => {
+  /** Comments wired like the window (`wiring/edit-history.ts`): user edits on a stack, AI edits not; undo / redo via `apply`. */
   function setup() {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const stack: CommentEdit[] = [];
     c.onEdit = (e) => {
       if (e.by === 'human') stack.push(e);
@@ -260,7 +292,7 @@ describe('AI edits and undo (T10.2)', () => {
   }
 
   it('marks who made each edit', () => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     const by: string[] = [];
     c.onEdit = (e) => by.push(`${e.kind}:${e.by}`);
     c.add('Fillet this', []);
@@ -366,7 +398,7 @@ describe('part results (part requests)', () => {
     scope: 'whole',
   });
   const request = (): Comments => {
-    const c = new Comments(clock());
+    const c = new Comments(clock(), counterIds('c'));
     c.add('Fasten here', [], 'human', [], [part('p1'), part('p2')]);
     return c;
   };
@@ -377,7 +409,7 @@ describe('part results (part requests)', () => {
         .get('c1')
         ?.parts?.map((p) => p.id),
     ).toEqual(['p1', 'p2']);
-    const none = new Comments(clock());
+    const none = new Comments(clock(), counterIds('c'));
     none.add('No parts', []);
     expect(none.get('c1')).not.toHaveProperty('parts');
   });

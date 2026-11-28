@@ -1,5 +1,5 @@
 /**
- * What changed between two versions of a model (T8.3 compare overlay), from their meshes: the
+ * What changed between two versions of a model (the compare overlay), from their meshes: the
  * previous version's surface and edge pieces that are not in the new one (drawn see-through:
  * material that went away or moved), and the new version's surface not in the old one (tinted:
  * material that is new or moved).

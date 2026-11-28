@@ -20,7 +20,7 @@ export interface LoadedModel {
 }
 
 /**
- * Keep the import worker (and its shapes, for exact values — T2.8) only up to this WASM heap.
+ * Keep the import worker (and its shapes, for exact values) only up to this WASM heap.
  * Typical models use a few MB; huge assemblies (a 2.7 GB one) free it.
  */
 export const KEEP_KERNEL_MAX_HEAP_BYTES = 1024 ** 3;
@@ -32,7 +32,7 @@ export const FILE_CHANGED_MESSAGE =
 /**
  * One fresh worker per import. That lets a new file cancel a running import at once (instead of
  * queueing behind it). After the import the worker is kept for exact values if OpenCascade's
- * heap stayed small, else terminated to free that memory — WASM memory never shrinks (T1.5:
+ * heap stayed small, else terminated to free that memory — WASM memory never shrinks (
  * ~1 GB kept after the 130-body sample). Costs a kernel start per load.
  */
 export type ImportWorker = MessageEndpoint & {
@@ -88,7 +88,7 @@ export class ModelLoader {
     this.dropShown();
     const t0 = performance.now();
     const format = meshFormatOf(file.name);
-    // T9.1: STL / 3MF are read as meshes (no kernel, nothing kept: they have no exact values).
+    // STL / 3MF are read as meshes (no kernel, nothing kept: they have no exact values).
     const mesh = format ? { format, name: file.name.replace(/\.[^.]*$/, '') } : undefined;
     const result = await this.run(ticket, file.data, onProgress, KEEP_KERNEL_MAX_HEAP_BYTES, mesh);
     if (!result) return null;
@@ -117,7 +117,7 @@ export class ModelLoader {
       if (this.running) throw new Error('The file is still being read');
       const file = await this.readFile(shown.path);
       if (ticket !== this.latest) return null;
-      // Another file version: ids would point at other entities (T5.1: hash, was id counts).
+      // Another file version: ids would point at other entities (hash, was id counts).
       if (file.contentHash !== shown.hash) throw new Error(FILE_CHANGED_MESSAGE);
       // No heap limit: the user asked for it; freed with the next load.
       const result = await this.run(ticket, file.data, onProgress, undefined);
@@ -180,7 +180,7 @@ export class ModelLoader {
   }
 
   /**
-   * Stop any import and free the worker kept for the last model (T8.5: a version read only to
+   * Stop any import and free the worker kept for the last model (a version read only to
    * compare needs no exact values).
    */
   release(): void {

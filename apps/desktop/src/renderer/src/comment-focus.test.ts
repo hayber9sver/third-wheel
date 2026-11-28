@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FOCUS_FADE, focusedEntities, focusedStyles, mixColor } from './comment-focus.js';
 
-describe('comment focus look (T4.2)', () => {
+describe('comment focus look', () => {
   it('mixColor blends per channel', () => {
     expect(mixColor(0xff0000, 0x0000ff, 0)).toBe(0xff0000);
     expect(mixColor(0xff0000, 0x0000ff, 1)).toBe(0x0000ff);
@@ -28,6 +28,23 @@ describe('comment focus look (T4.2)', () => {
       visible: true,
     });
     expect(out[2]?.visible).toBe(true);
+  });
+
+  it('resolved markers shown by "Show resolved" fade, unless their comment is focused', () => {
+    const withResolved = [...styles, { id: 'm4', color: 0xff0000, visible: true, fade: true }];
+    const faded = mixColor(0xff0000, 0xffffff, FOCUS_FADE);
+    expect(focusedStyles(withResolved, undefined, 0xffffff)[3]?.color).toBe(faded);
+    expect(focusedStyles(withResolved, undefined, 0xffffff)[0]).toBe(styles[0]);
+    expect(focusedStyles(withResolved, new Set(['m4']), 0xffffff)[3]?.color).toBe(0xff0000);
+    expect(focusedStyles(withResolved, new Set(['m1']), 0xffffff)[3]?.color).toBe(faded);
+    const ents = [
+      { kind: 'face' as const, id: 1, markerId: 'm1', color: '#ff0000' },
+      { kind: 'face' as const, id: 2, markerId: 'm4', color: '#000000', fade: true },
+    ];
+    const plain = focusedEntities(ents, undefined, 0xffffff);
+    expect(plain[0]).toBe(ents[0]);
+    expect(plain[1]?.color).toBe('#b3b3b3');
+    expect(focusedEntities(ents, new Set(['m4']), 0xffffff)[1]).toBe(ents[1]);
   });
 
   it('fades entities of other markers', () => {

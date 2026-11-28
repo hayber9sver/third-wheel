@@ -1,5 +1,5 @@
 /**
- * Reading the GPU ID buffer (T2.1), pure. The pick pass renders a small square around the cursor
+ * Reading the GPU ID buffer, pure. The pick pass renders a small square around the cursor
  * where every pixel holds an entity: RGB = 24-bit id (R = low byte), A = kind (0 = background).
  * Faces are drawn first, then edges, then vertices, each depth-tested — so what is left in a
  * pixel is the frontmost entity of the highest priority there.

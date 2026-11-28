@@ -27,7 +27,7 @@ export const EDGE_GEOMETRY_STRIDE = 9;
 export interface StepModel {
   readonly tessellation: TessellationSettings;
   /**
-   * Set for a mesh file (STL / 3MF, T9.1): one face per body, no edges or vertices, no entity
+   * Set for a mesh file (STL / 3MF): one face per body, no edges or vertices, no entity
    * selection; `tessellation` is then unused (the file's triangles are used as they are).
    */
   readonly meshFormat?: 'stl' | '3mf';
@@ -75,6 +75,12 @@ export interface StepModel {
    * - circle / arc: d = axis (normal of the circle's plane), p = centre, radius, arc angle (rad, 2π = full)
    */
   readonly edgeGeometry: Float32Array;
+  /**
+   * Tangent chain id per edge (the smallest edge id in the chain): edges of one body that
+   * continue smoothly into each other through shared vertices (`edge-chain.ts`). Double-click
+   * on an edge selects its chain.
+   */
+  readonly edgeChain: Uint32Array;
 
   // --- Vertices ---
   /** XYZ per B-rep vertex. */
@@ -118,7 +124,7 @@ export interface ImportStats {
 
 export type ImportStage = 'read' | 'topology' | 'mesh' | 'edges' | 'info';
 
-/** Stage order and rough share of total time (from the T1.1 measurements), for a progress bar. */
+/** Stage order and rough share of total time (from the kernel spike measurements), for a progress bar. */
 export const IMPORT_STAGES: readonly { stage: ImportStage; label: string; weight: number }[] = [
   { stage: 'read', label: 'Reading STEP', weight: 0.7 },
   { stage: 'topology', label: 'Building topology', weight: 0.03 },
@@ -150,6 +156,7 @@ export function transferablesOf(model: StepModel): ArrayBuffer[] {
     model.edgeRanges,
     model.edgeBody,
     model.edgeGeometry,
+    model.edgeChain,
     model.vertexPositions,
     model.vertexBody,
     model.bodyAssembly,

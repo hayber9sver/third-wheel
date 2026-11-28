@@ -18,7 +18,7 @@ import {
 import { importStep } from './step-import.js';
 import { transferAnnotations } from './transfer.js';
 
-// The revision test set (T8.0). T8.2's transfer must make every pair "found correctly".
+// The revision test set. The annotation transfer must make every pair "found correctly".
 const dir = new URL('../test-data/revisions/', import.meta.url);
 const set: RevisionSet = parseRevisionSet(
   JSON.parse(readFileSync(new URL('revisions.json', dir), 'utf8')),
@@ -42,7 +42,7 @@ const afterOf = (p: RevisionPair): StepModel => {
   return m;
 };
 
-/** Leaves the annotations as they are and calls everything found: what happens without T8.2. */
+/** Leaves the annotations as they are and calls everything found: what happens without the transfer. */
 function sameIds(): TransferResult {
   return {
     annotations: before,
@@ -121,14 +121,14 @@ describe('revision test set', () => {
     expect(formatReport(reports)).not.toContain('✗');
   });
 
-  it('reports what keeping the old ids gets right (the baseline T8.2 must beat)', () => {
+  it('reports what keeping the old ids gets right (the baseline the transfer must beat)', () => {
     const reports = set.pairs.map((p) => checkPair(afterOf(p), set, p, sameIds()));
     // Only the unchanged control passes: every real change breaks some marker.
     expect(reports.filter((r) => r.ok).map((r) => r.pair)).toEqual(['00-unchanged']);
     if (process.env.THIRD_WHEEL_REVISIONS) console.log(formatReport(reports));
   });
 
-  it('T8.2: the annotation transfer finds every pair correctly', () => {
+  it('the annotation transfer finds every pair correctly', () => {
     const reports = set.pairs.map((p) =>
       checkPair(afterOf(p), set, p, transferAnnotations(before, afterOf(p))),
     );

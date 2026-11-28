@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.schema.json",
+  "title": "Third Wheel agent description",
+  "description": "One AI agent's tab in the Connect pop-up. Guide: docs/adding-an-agent.md. The app's own checker (apps/desktop/src/shared/agent-desc.ts) is the final word; this schema helps editors.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "label", "tab", "order", "tested", "engine", "manual", "texts"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "description": "The file name without .json.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "label": {
+      "description": "The agent's name in sentences.",
+      "type": "string",
+      "minLength": 1
+    },
+    "tab": {
+      "description": "The tab text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "order": {
+      "description": "Tabs are sorted by this.",
+      "type": "number"
+    },
+    "tested": {
+      "description": "Who tried it with the real program, which version and OS. null = not yet: the tab is hidden.",
+      "type": ["string", "null"]
+    },
+    "engine": {
+      "enum": ["command", "settings", "link", "manual"]
+    },
+    "command": {
+      "$ref": "#/$defs/command"
+    },
+    "settings": {
+      "$ref": "#/$defs/settings"
+    },
+    "link": {
+      "$ref": "#/$defs/link"
+    },
+    "chat": {
+      "$ref": "#/$defs/chat"
+    },
+    "manual": {
+      "description": "The copy box: the add command, the settings file text, and / or a JSON snippet.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "command": {
+          "const": true
+        },
+        "settings": {
+          "const": true
+        },
+        "json": {
+          "$ref": "#/$defs/template"
+        }
+      }
+    },
+    "texts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "button": {
+          "type": "string"
+        },
+        "buttonHint": {
+          "description": "{file} = the settings file.",
+          "type": "string"
+        },
+        "notFoundHint": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "notFoundTitle": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "after": {
+          "type": "string"
+        },
+        "scopeFolder": {
+          "type": "string"
+        },
+        "scopeUser": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "template": {
+      "description": "JSON with the placeholders {name}, {command}, {serverPath}; \"{env}\" as a whole value = the environment, left out when empty."
+    },
+    "args": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "where": {
+      "enum": ["local", "project", "user"]
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["program", "add", "env", "remove", "scopes", "entries", "timeoutSec"],
+      "properties": {
+        "program": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "windows", "folders"],
+          "properties": {
+            "name": {
+              "description": "The agent's own program; shells and script runners (bash, pwsh, node, python …) are refused.",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][\\w.-]*$"
+            },
+            "windows": {
+              "description": "<name>.exe and / or <name>.cmd.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "\\.(exe|cmd)$"
+              }
+            },
+            "folders": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^~/"
+              }
+            },
+            "editorExtension": {
+              "type": "string"
+            }
+          }
+        },
+        "add": {
+          "$ref": "#/$defs/args"
+        },
+        "env": {
+          "$ref": "#/$defs/args"
+        },
+        "remove": {
+          "$ref": "#/$defs/args"
+        },
+        "scopes": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "folder": {
+              "$ref": "#/$defs/scope"
+            },
+            "user": {
+              "$ref": "#/$defs/scope"
+            }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["where", "file", "key"],
+            "properties": {
+              "where": {
+                "$ref": "#/$defs/where"
+              },
+              "file": {
+                "type": "string"
+              },
+              "fileEnv": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "key": {
+                "$ref": "#/$defs/args"
+              },
+              "approval": {
+                "description": "For an entry the agent asks about before using it (Claude Code: a folder's .mcp.json): where it keeps the user's yes / no.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["files", "enabled", "disabled", "all"],
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["file", "key"],
+                      "properties": {
+                        "file": {
+                          "type": "string"
+                        },
+                        "fileEnv": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]*$"
+                        },
+                        "key": {
+                          "$ref": "#/$defs/args"
+                        }
+                      }
+                    }
+                  },
+                  "enabled": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "string"
+                  },
+                  "all": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "check": {
+          "type": "boolean"
+        },
+        "timeoutSec": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 300
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["args", "where"],
+      "properties": {
+        "args": {
+          "$ref": "#/$defs/args"
+        },
+        "where": {
+          "$ref": "#/$defs/where"
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "format", "key", "entry"],
+      "properties": {
+        "file": {
+          "description": "Under ~/, ending in .json or .toml as format says.",
+          "type": "string",
+          "pattern": "^~/.*\\.(json|toml)$"
+        },
+        "fileEnv": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "format": {
+          "enum": ["json", "toml"]
+        },
+        "key": {
+          "$ref": "#/$defs/args"
+        },
+        "entry": {
+          "$ref": "#/$defs/template"
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "config", "encode"],
+      "properties": {
+        "url": {
+          "description": "cursor:, vscode: or vscode-insiders: only.",
+          "type": "string",
+          "pattern": "^(cursor|vscode|vscode-insiders):"
+        },
+        "config": {
+          "$ref": "#/$defs/template"
+        },
+        "encode": {
+          "enum": ["base64", "json"]
+        }
+      }
+    },
+    "chat": {
+      "description": "The Connect pop-up's \"Chat in Third Wheel\" part.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start"],
+      "properties": {
+        "start": {
+          "description": "What to type in a terminal to start the agent.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][\\w.-]*$"
+        },
+        "allow": {
+          "description": "\"Ask fewer permission questions\": rules ({name}, {cad}) added to a .json file in the folder the agent starts in.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "key", "rules"],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "key": {
+              "$ref": "#/$defs/args"
+            },
+            "rules": {
+              "$ref": "#/$defs/args"
+            },
+            "windowsRules": {
+              "$ref": "#/$defs/args"
+            }
+          }
+        }
+      }
+    }
+  }
+}

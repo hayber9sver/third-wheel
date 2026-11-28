@@ -10,11 +10,11 @@ export interface BodyLeaf {
 
 export interface Folder {
   readonly kind: 'folder';
-  /** Row key: "f<assembly>" for a STEP assembly, "u<id>" for a user folder (T5.4). */
+  /** Row key: "f<assembly>" for a STEP assembly, "u<id>" for a user folder. */
   readonly key: string;
   /** Index into the model's `assemblies`; -1 for a user folder. */
   readonly assembly: number;
-  /** Id of a user folder (T5.4); undefined for a STEP assembly. */
+  /** Id of a user folder; undefined for a STEP assembly. */
   readonly userId?: string;
   readonly name: string;
   readonly children: readonly TreeNode[];

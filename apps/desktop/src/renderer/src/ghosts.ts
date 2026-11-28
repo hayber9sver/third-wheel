@@ -1,8 +1,8 @@
 /**
- * Ghosts of markers the revision transfer could not place (T8.3): where their lost parts were,
+ * Ghosts of markers the revision transfer could not place: where their lost parts were,
  * drawn as faint dots (painted points, vertices, face centres) and dashed lines (straight edges)
  * in the marker's colour. The points come from `transfer.ghost`, already in this model's frame
- * (T8.2 moves them with their body). Pure: the viewport turns the result into three.js objects.
+ * (the revision transfer moves them with their body). Pure: the viewport turns the result into three.js objects.
  */
 import type { Marker } from './markers';
 import { colorToHex } from './markers';

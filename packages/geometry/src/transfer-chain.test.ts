@@ -16,7 +16,7 @@ import { importStep } from './step-import.js';
 import { transferAnnotations, type TransferStatus } from './transfer.js';
 import { at3, cross, len, sub, type V3 } from './vec.js';
 
-// A real-use sequence (T8.2): a brush stroke on the plate's top and the end top edge,
+// A real-use sequence: a brush stroke on the plate's top and the end top edge,
 // moved base → 01 fillet → 08 rotated → 09 mirrored → 00 back, saved in between as the app does.
 // The paint must keep its size (it grew on every version before), and the edge must come back
 // once the fillet is gone.

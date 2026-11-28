@@ -12,7 +12,7 @@ export default tseslint.config(
       '**/dist/',
       '**/dist-electron/',
       '**/out/',
-      '**/release/', // installers (R4)
+      '**/release/', // installers
       '**/build/',
       '**/coverage/',
     ],
@@ -47,6 +47,29 @@ export default tseslint.config(
             {
               group: ['electron', 'electron/*'],
               message: 'packages/core must not import Electron.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Core code (not its tests) does no I/O: callers pass Node's `path` / a file system.
+    files: ['packages/core/**/*.ts'],
+    ignores: ['packages/core/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['three', 'three/*'], message: 'packages/core must not import three.js.' },
+            {
+              group: ['electron', 'electron/*'],
+              message: 'packages/core must not import Electron.',
+            },
+            {
+              group: ['node:*', 'fs', 'path', 'os'],
+              message: 'packages/core does no I/O: take a PathApi / ProjectFs from the caller.',
             },
           ],
         },

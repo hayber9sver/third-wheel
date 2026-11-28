@@ -17,7 +17,7 @@ function counter(): { value: number; step: (by: number, label?: string) => UndoS
   return c;
 }
 
-describe('UndoHistory (T3.5)', () => {
+describe('UndoHistory', () => {
   it('undoes and redoes in order, with labels', () => {
     const h = new UndoHistory();
     const c = counter();

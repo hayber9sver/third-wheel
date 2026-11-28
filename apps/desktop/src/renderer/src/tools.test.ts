@@ -28,7 +28,7 @@ describe('tools', () => {
     expect(toolForKey('x')).toBeUndefined();
   });
 
-  it('gives each tool its cursor (T3.1)', () => {
+  it('gives each tool its cursor', () => {
     expect(toolDef('select').cursor).toBe('pick');
     expect(toolDef('brush').cursor).toBe('circle');
     expect(toolDef('smart-fill').cursor).toBe('crosshair');
@@ -41,7 +41,7 @@ describe('tools', () => {
     expect(DEFAULT_BRUSH_RADIUS_MM).toBe(3);
   });
 
-  it('steps the brush radius through the list, snapping first and stopping at the ends (T3.3)', () => {
+  it('steps the brush radius through the list, snapping first and stopping at the ends', () => {
     expect(BRUSH_RADII_MM).toContain(DEFAULT_BRUSH_RADIUS_MM);
     expect(stepBrushRadius(3, 1)).toBe(4);
     expect(stepBrushRadius(3, -1)).toBe(2.5);
@@ -71,7 +71,7 @@ describe('tools', () => {
     expect(brushInfo('brush', 3, { angleDeg: 30, wholeFace: true })).toBe(
       'Brush 3 mm · [ ] or Alt + scroll: size · Shift: erase',
     );
-    // The readout names the marker Shift erases, and says so while Shift is held (T10.1).
+    // The readout names the marker Shift erases, and says so while Shift is held.
     expect(brushInfo('brush', 3, undefined, { marker: 'Marker 1' })).toBe(
       'Brush 3 mm · [ ] or Alt + scroll: size · Shift: erase Marker 1',
     );

@@ -1,5 +1,5 @@
 /**
- * Frame-time measurement for performance checks (T1.5). Dev only: enabled by the
+ * Frame-time measurement for performance checks. Dev only: enabled by the
  * `THIRD_WHEEL_PERF` env var (`1` = live readout after each orbit, `bench` = scripted run + quit).
  */
 

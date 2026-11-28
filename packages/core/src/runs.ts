@@ -1,4 +1,4 @@
-/** Triangle runs (T5.1): ascending triangle numbers ↔ `[first, count]` pairs as the sidecar stores them. */
+/** Triangle runs: ascending triangle numbers ↔ `[first, count]` pairs as the sidecar stores them. */
 import type { TriangleRun } from './schema.js';
 
 /** Appends triangle `t` (ascending order) to `runs`, extending the last run when `t` follows it. */

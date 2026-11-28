@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  annotationsSchema,
+  type VersionLink,
   type Annotations,
   SCHEMA_VERSION,
   emptyAnnotations,
@@ -334,7 +336,7 @@ describe('annotation schema (edge cases)', () => {
   });
 });
 
-describe('annotation schema: body tree (T5.4)', () => {
+describe('annotation schema: body tree', () => {
   it('accepts user folders and moved rows; a missing bodyTree is fine', () => {
     const bodyTree = {
       folders: [{ id: 'n1', name: 'Screws', parent: 'top' as const }],
@@ -359,7 +361,7 @@ describe('annotation schema: body tree (T5.4)', () => {
   });
 });
 
-describe('annotation schema: fingerprints (T6.2)', () => {
+describe('annotation schema: fingerprints', () => {
   const bodies = [
     { name: 'Bracket', size: [40, 40, 10], centre: [20, 20, 5], area: 4000 },
     { name: 'M3 screw', path: 'Assembly › Screws', size: [3, 3, 10], centre: [0, 0, 0], area: 90 },
@@ -431,7 +433,7 @@ describe('annotation schema: fingerprints (T6.2)', () => {
     expect(parsed.droppedFields).toEqual(['markers.0.entities.0.fingerprint', 'bodies']);
   });
 
-  it('keeps a mesh hash and drops a malformed one (T8.1)', () => {
+  it('keeps a mesh hash and drops a malformed one', () => {
     const doc = sample();
     const meshHash = `sha256:${'c'.repeat(64)}`;
     const good = parseAnnotations({ ...doc, model: { ...doc.model, meshHash } });
@@ -441,5 +443,35 @@ describe('annotation schema: fingerprints (T6.2)', () => {
     if (!bad.ok) return;
     expect(bad.data.model.meshHash).toBeUndefined();
     expect(bad.droppedFields).toEqual(['model.meshHash']);
+  });
+});
+
+// Old notes files (v1) carry a version chain; it is read when they move into a project.
+const hash = (c: string): string => `sha256:${c.repeat(64)}`;
+const link = (name: string, c: string, more: Partial<VersionLink> = {}): VersionLink => ({
+  path: `/m/${name}`,
+  name,
+  contentHash: hash(c),
+  date: '2026-11-09T14:02:00.000Z',
+  ...more,
+});
+
+describe('versions in the sidecar', () => {
+  const doc = {
+    schemaVersion: 1,
+    model: { fileName: 'b.step', format: 'step', contentHash: hash('b') },
+    tessellation: { linearDeflection: 0.1, angularDeflection: 0.5 },
+    markers: [],
+    comments: [],
+  };
+
+  it('reads a chain', () => {
+    const versions = { earlier: [link('a.step', 'a', { overwritten: true })] };
+    expect(annotationsSchema.parse({ ...doc, versions }).versions).toEqual(versions);
+  });
+
+  it('drops a malformed chain, never the file', () => {
+    const parsed = annotationsSchema.parse({ ...doc, versions: { earlier: [{ path: 3 }] } });
+    expect(parsed.versions).toBeUndefined();
   });
 });

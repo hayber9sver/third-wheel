@@ -1,16 +1,8 @@
 /**
  * Tells mouse wheels from trackpad two-finger swipes. Browsers deliver both as `wheel` events
  * (a pinch arrives as `wheel` with `ctrlKey: true` on macOS and on Windows precision touchpads),
- * so we classify heuristically, per gesture "stream". `ScrollInput` can force one kind (no UI yet).
+ * so we classify heuristically, per gesture "stream".
  */
-
-/** User setting: auto-detect, or force one interpretation of scroll events. */
-export type ScrollInput = 'auto' | 'mouse' | 'trackpad';
-export const SCROLL_INPUTS: readonly ScrollInput[] = ['auto', 'mouse', 'trackpad'];
-
-export function isScrollInput(value: unknown): value is ScrollInput {
-  return typeof value === 'string' && (SCROLL_INPUTS as readonly string[]).includes(value);
-}
 
 export type WheelKind = 'mouse' | 'trackpad';
 

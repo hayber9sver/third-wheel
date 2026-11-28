@@ -1,5 +1,5 @@
 /**
- * Geometry for highlighted entities (T2.2 hover + selection), pure. Faces become a list of
+ * Geometry for highlighted entities (hover + selection), pure. Faces become a list of
  * indices into the model's vertex buffer (highlighter.ts copies those vertices into its own mesh),
  * edges become line segment pairs, vertices become points. Entities of hidden bodies are left out.
  */
@@ -134,7 +134,7 @@ function segmentsOf(edges: Iterable<number>, model: HighlightModel): Float32Arra
   return out;
 }
 
-/** Vertex indices of import `triangles` (3 per triangle), e.g. painted triangles to frame (T4.2). */
+/** Vertex indices of import `triangles` (3 per triangle), e.g. painted triangles to frame. */
 export function triangleVertexIndices(
   triangles: ArrayLike<number>,
   indices: ArrayLike<number>,

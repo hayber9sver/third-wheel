@@ -1,4 +1,4 @@
-/** Dev perf probe (T1.5): wires FrameRecorder to the viewport for the `perf` URL query. */
+/** Dev perf probe: wires FrameRecorder to the viewport for the `perf` URL query. */
 import type { PerfMode } from '../../shared/ipc.js';
 import { FrameRecorder, formatSummary } from './perf.js';
 import type { Viewport } from './viewport.js';

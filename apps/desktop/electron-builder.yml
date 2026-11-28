@@ -1,4 +1,4 @@
-# Installers (R4): `pnpm dist` → macOS universal .dmg / Windows .exe (NSIS) in apps/desktop/release/.
+# Installers: `pnpm dist` → macOS universal .dmg / Windows .exe (NSIS) in apps/desktop/release/.
 # CI (.github/workflows/release.yml) builds both and attaches them to a draft GitHub Release.
 # Unsigned: the README explains the first-open warnings.
 appId: io.github.xilaotr.thirdwheel
@@ -14,7 +14,7 @@ files:
   - resources/icon.*
   - package.json
   - '!**/node_modules/**'
-# LGPL-2.1 (OpenCascade, T13.1): the kernel stays a plain file users can replace.
+# LGPL-2.1 (OpenCascade): the kernel stays a plain file users can replace.
 asarUnpack:
   - out/renderer/assets/*.wasm
 extraResources:

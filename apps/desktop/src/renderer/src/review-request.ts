@@ -1,11 +1,11 @@
 /**
- * Review requests from the AI (T7.2): `request_review` opens one, the user answers with "Send to
+ * Review requests from the AI: `request_review` opens one, the user answers with "Send to
  * AI" (or dismisses it), `wait_for_review` long-polls for that answer. One request is open at a
  * time; a new one replaces the old. Pure (timers only) so it is unit-tested.
  */
 import type { ReviewModelCount, ReviewState, WaitReviewResult } from '@third-wheel/core';
 
-/** A model a request covers (T7.4); `path` lets the banner open it again. */
+/** A model a request covers; `path` lets the banner open it again. */
 export interface ReviewModel {
   readonly modelId: string;
   readonly name: string;
@@ -66,7 +66,7 @@ export class ReviewRequests {
     return this.current?.models.some((m) => m.modelId === modelId) ?? false;
   }
 
-  /** The user clicked "Send to AI"; `counts` = open comments per model of the request. */
+  /** The user clicked "Send review"; `counts` = open comments per model of the request. */
   send(counts: readonly ReviewModelCount[]): void {
     const openComments = counts.reduce((n, c) => n + c.openComments, 0);
     const several = (this.current?.models.length ?? 0) > 1;

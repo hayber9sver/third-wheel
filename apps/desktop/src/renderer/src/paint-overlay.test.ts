@@ -71,7 +71,7 @@ const line = (y: number, radius: number, from = 20, to = 400): PaintSphere[] => 
   return s;
 };
 
-describe('PaintOverlay block-wise rebuild (T12.2)', () => {
+describe('PaintOverlay block-wise rebuild', () => {
   it('the grid spans several paint blocks', () => {
     expect(g.count).toBeGreaterThan(3 * PAINT_BLOCK);
   });
@@ -191,7 +191,7 @@ function overlapCut(layer: PaintLayer): number {
   return both;
 }
 
-describe('PaintOverlay fade while comparing (T12.5)', () => {
+describe('PaintOverlay fade while comparing', () => {
   it('fades every marker material, also ones made later, and back to solid', () => {
     const layer = new PaintLayer(g.count, g);
     const o = overlay();

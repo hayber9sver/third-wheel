@@ -1,0 +1,39 @@
+{
+  "$schema": "./agent.schema.json",
+  "id": "vscode",
+  "label": "VS Code",
+  "tab": "VS Code",
+  "order": 50,
+  "tested": null,
+  "engine": "link",
+  "link": {
+    "url": "vscode:mcp/install?{config}",
+    "config": {
+      "name": "{name}",
+      "type": "stdio",
+      "command": "{command}",
+      "args": ["{serverPath}"],
+      "env": "{env}"
+    },
+    "encode": "json"
+  },
+  "manual": {
+    "json": {
+      "mcpServers": {
+        "{name}": {
+          "type": "stdio",
+          "command": "{command}",
+          "args": ["{serverPath}"],
+          "env": "{env}",
+          "tools": ["*"]
+        }
+      }
+    }
+  },
+  "texts": {
+    "button": "Install in VS Code",
+    "buttonHint": "Opens VS Code (GitHub Copilot), which asks you to confirm.",
+    "title": "Or add this to a .mcp.json",
+    "where": ".mcp.json in your project folder, or ~/.copilot/mcp-config.json for all folders. VS Code asks you to trust the server the first time it starts."
+  }
+}

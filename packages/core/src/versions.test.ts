@@ -6,6 +6,7 @@ import {
   sameBodyNames,
   sameModelName,
   sameOverallSize,
+  differentPartReason,
   versionName,
 } from './versions.js';
 
@@ -129,5 +130,33 @@ describe('sameOverallSize', () => {
   it('refuses other sizes and empty lists', () => {
     expect(sameOverallSize([box([50, 20, 10])], [box([50, 20, 12])])).toBe(false);
     expect(sameOverallSize([], [box([1, 1, 1])])).toBe(false);
+  });
+});
+
+describe('differentPartReason', () => {
+  const box = (size: number[], centre = [0, 0, 0]) => ({ size, centre });
+  const bracket = [box([40, 20, 10])];
+  it('says nothing for an edited version of the same part', () => {
+    expect(differentPartReason(bracket, [box([44, 20, 9])], { held: 4, lost: 1 })).toBeUndefined();
+    // Turned 90° on export: same sorted sides.
+    expect(differentPartReason(bracket, [box([20, 10, 40])], { held: 0, lost: 0 })).toBeUndefined();
+  });
+  it('names a very different size, sides as they are', () => {
+    expect(differentPartReason(bracket, [box([120, 80, 5.25])], { held: 0, lost: 0 })).toBe(
+      'size 40 × 20 × 10 mm → 120 × 80 × 5.3 mm',
+    );
+  });
+  it('names most markers lost (at least two)', () => {
+    expect(differentPartReason(bracket, bracket, { held: 8, lost: 6 })).toBe('6 of 8 markers lost');
+    expect(differentPartReason(bracket, bracket, { held: 2, lost: 1 })).toBeUndefined();
+    expect(differentPartReason(bracket, bracket, { held: 1, lost: 1 })).toBeUndefined();
+  });
+  it('gives both signs; no earlier box = markers only', () => {
+    expect(differentPartReason(bracket, [box([200, 20, 10])], { held: 3, lost: 3 })).toBe(
+      '3 of 3 markers lost; size 40 × 20 × 10 mm → 200 × 20 × 10 mm',
+    );
+    expect(
+      differentPartReason(undefined, [box([200, 20, 10])], { held: 3, lost: 0 }),
+    ).toBeUndefined();
   });
 });

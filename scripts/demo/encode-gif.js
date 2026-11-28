@@ -1,4 +1,4 @@
-// Encodes record-demo.js frames into a GIF (R2). The two encoders are not project dependencies:
+// Encodes record-demo.js frames into a GIF. The two encoders are not project dependencies:
 // install them once into a folder of your choice and pass it as <helpersDir>:
 //   npm install --prefix <helpersDir> pngjs@7.0.0 gifenc@1.0.3
 //   node scripts/demo/encode-gif.js <framesDir> docs/images/demo.gif <helpersDir>

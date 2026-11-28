@@ -1,5 +1,5 @@
 /**
- * "About Third Wheel" pop-up (T13.1): logo, name, version, copyright, licence, GitHub link,
+ * "About Third Wheel" pop-up: logo, name, version, copyright, licence, GitHub link,
  * credit, and the third-party licences (the shipped notices file) behind a button. Opened from
  * the app menu (macOS) / Help menu (Windows) via main. Texts live in `shared/about.ts`.
  */
@@ -86,7 +86,7 @@ export function setupAbout(): About {
   };
   api?.onShowAbout(open);
 
-  // Start card (T13.3): "v0.1.0 · Open source (Apache 2.0)"; the link opens in the browser.
+  // Start card: "v0.1.0 · Open source (Apache 2.0)"; the link opens in the browser.
   const startLink = el('empty-version-link') as HTMLAnchorElement;
   startLink.href = APP_REPO_URL;
   startLink.title = APP_REPO_URL;

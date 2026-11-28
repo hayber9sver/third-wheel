@@ -1,5 +1,5 @@
 /**
- * Smart fill hover preview (T3.4): the region a click would fill, tinted in the active marker's
+ * Smart fill hover preview: the region a click would fill, tinted in the active marker's
  * colour (red when the click would erase). One mesh sharing the model's vertex buffers, drawn
  * over the faces and the paint.
  */

@@ -2,16 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
   ago,
   aiStatusView,
-  claudeAddCommand,
-  mcpJsonSnippet,
   RECENT_CALL_MS,
   saveStatusView,
   shellQuote,
   toolOfMethod,
   type McpSetup,
-  claudeAddArgs,
+  type McpScope,
   MCP_RUN_AS_NODE,
 } from './ai-status.js';
+import { agentById } from './agent-list.js';
+import { commandArgs, commandText, jsonSnippet } from './agents.js';
+
+// Claude Code's command and .mcp.json, now from agents/claude.json: the expectations are the ones
+// the hand-written builders had.
+const claude = agentById('claude');
+const claudeCommand = claude?.command;
+if (!claude || !claudeCommand) throw new Error('agents/claude.json missing');
+const claudeAddCommand = (s: McpSetup, scope: McpScope): string =>
+  commandText(claudeCommand, s, scope);
+const claudeAddArgs = (s: McpSetup, scope: McpScope): string[] =>
+  commandArgs(claudeCommand, s, scope);
+const mcpJsonSnippet = (s: McpSetup): string => jsonSnippet(claude, s) ?? '';
 
 const NOW = 1_800_000_000_000;
 
@@ -31,22 +42,38 @@ describe('toolOfMethod', () => {
 });
 
 describe('aiStatusView', () => {
-  it('grey before any call, never says "connected"', () => {
+  it('grey "no agent yet" before any call, never says "connected" or "ready"', () => {
     const v = aiStatusView({ bridge: 'on' }, NOW);
-    expect(v).toMatchObject({ dot: 'idle', label: 'AI: ready · no calls yet' });
-    expect(v.label + v.title).not.toMatch(/connected/i);
+    expect(v).toMatchObject({ dot: 'idle', label: 'AI: no agent yet' });
+    expect(v.label + v.title).not.toMatch(/connected|ready/i);
   });
 
-  it('green for a call in the last 10 min, grey after', () => {
+  it('green "listening" while an agent waits in the Agent tab', () => {
+    const last = { tool: 'wait_for_message', at: NOW - RECENT_CALL_MS - 1 };
+    expect(aiStatusView({ bridge: 'on', lastCall: last }, NOW, true)).toMatchObject({
+      dot: 'active',
+      label: 'AI: listening',
+    });
+    expect(aiStatusView({ bridge: 'on' }, NOW, true).label).toBe('AI: listening');
+    // A bridge that is down wins.
+    expect(aiStatusView({ bridge: 'failed' }, NOW, true).dot).toBe('error');
+  });
+
+  it('green for a recent call (outlasts a chat wait), grey after', () => {
     const at = NOW - 2 * 60_000;
     const v = aiStatusView({ bridge: 'on', lastCall: { tool: 'load_model', at } }, NOW);
-    expect(v).toMatchObject({ dot: 'active', label: 'AI: ready · last call 2 min ago' });
+    expect(v).toMatchObject({ dot: 'active', label: 'AI: last call 2 min ago' });
     expect(v.title).toContain('load_model');
     const old = aiStatusView(
       { bridge: 'on', lastCall: { tool: 'load_model', at: NOW - RECENT_CALL_MS - 1 } },
       NOW,
     );
-    expect(old).toMatchObject({ dot: 'idle', label: 'AI: ready · last call 10 min ago' });
+    expect(old).toMatchObject({ dot: 'idle', label: 'AI: last call 30 min ago' });
+    const listening = aiStatusView(
+      { bridge: 'on', lastCall: { tool: 'wait_for_message', at: NOW - 25 * 60_000 } },
+      NOW,
+    );
+    expect(listening.dot).toBe('active');
   });
 
   it('red when the bridge failed or is off', () => {
@@ -119,7 +146,7 @@ describe('connect command', () => {
     );
   });
 
-  it('packaged app: runs the server with its own executable as Node (R4)', () => {
+  it('packaged app: runs the server with its own executable as Node', () => {
     expect(claudeAddCommand(macApp, 'user')).toBe(
       'claude mcp add --scope user third-wheel --env ELECTRON_RUN_AS_NODE=1 -- "/Applications/Third Wheel.app/Contents/MacOS/Third Wheel" "/Applications/Third Wheel.app/Contents/Resources/mcp/third-wheel-mcp.js"',
     );

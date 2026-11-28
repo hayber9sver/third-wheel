@@ -23,7 +23,7 @@ export function isPrimaryShortcut(
 }
 
 /**
- * Undo / redo keys (T3.5): Mac Cmd+Z / Cmd+Shift+Z; Windows Ctrl+Z / Ctrl+Y (also Ctrl+Shift+Z).
+ * Undo / redo keys: Mac Cmd+Z / Cmd+Shift+Z; Windows Ctrl+Z / Ctrl+Y (also Ctrl+Shift+Z).
  */
 export function undoRedoShortcut(
   e: ModifierState & { readonly key: string },
@@ -56,7 +56,7 @@ export function dictationLabel(isMac: boolean): string {
 }
 
 /**
- * What a click on a body-list name does (T2.6, matches the viewport): plain (also Cmd/Ctrl) =
+ * What a click on a body-list name does (matches the viewport): plain (also Cmd/Ctrl) =
  * add or remove that row, Shift = add the range from the last clicked row.
  */
 export type ListClickMode = 'toggle' | 'range';
